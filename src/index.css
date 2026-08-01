@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #121316;
+  --surface: #1a1c20;
+  --surface-2: #202329;
+  --text: #ece9e3;
+  --muted: #8d9199;
+  --line: #2b2e34;
+
+  --accent-web: #8b7bff;
+  --accent-3d: #ffb74d;
+  --accent-photo: #4fd1c5;
+  --accent-video: #ff6fa5;
+
+  --cat-form: #d9a94c;
+  --cat-uiux: #8b7bff;
+  --cat-product: #ff9a5a;
+  --cat-interactive: #5ec8e8;
+  --cat-sustainable: #7fbf8f;
+  --cat-spatial: #c98bd9;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --radius: 4px;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Wheel SVG Styles */
+.wheel-ring-bg {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 1.5;
+  cursor: grab;
+  transition: fill 0.3s ease, stroke 0.3s ease;
+}
+
+.wheel-ring-bg:active {
+  cursor: grabbing;
+}
+
+.wheel-label {
+  cursor: pointer;
+  outline: none;
+}
+
+.label-hit {
+  fill: transparent;
+}
+
+.label-dot {
+  fill: var(--line);
+  transition: fill 0.25s ease, r 0.25s ease, filter 0.25s ease;
+}
+
+.wheel-label.is-active .label-dot {
+  r: 14;
+  filter: drop-shadow(0 0 16px currentColor);
+}
+
+.label-text {
+  fill: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+  transition: fill 0.25s ease, font-weight 0.25s ease, font-size 0.25s ease;
+  pointer-events: none;
+}
+
+.wheel-label.is-active .label-text {
+  fill: var(--text);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+/* Editor inline styles */
+body.editor-active [data-editable="true"] {
+  outline: 1px dashed transparent;
+  border-radius: 2px;
+  transition: outline-color 0.15s ease, background-color 0.15s ease;
+  cursor: text;
+}
+
+body.editor-active [data-editable="true"]:hover,
+body.editor-active [data-editable="true"]:focus {
+  outline-color: var(--accent-web);
+  background-color: rgba(139, 123, 255, 0.1);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}

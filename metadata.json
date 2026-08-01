@@ -1,0 +1,6 @@
+{
+  "name": "Archive - Interactive Portfolio",
+  "description": "An interactive portfolio website featuring a cropped focus wheel, media gallery for web, 3D models, photos, and videos, and a full password-protected Editor Mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
