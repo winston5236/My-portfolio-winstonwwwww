@@ -1,0 +1,15 @@
+{
+  "entities": {
+    "Portfolio": {
+      "path": "portfolio/{portfolioId}",
+      "type": "document",
+      "fields": {
+        "site": { "type": "map" },
+        "theme": { "type": "map" },
+        "categories": { "type": "array" },
+        "projects": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  }
+}
