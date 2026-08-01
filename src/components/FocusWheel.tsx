@@ -1,14 +1,28 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Category, SiteSettings } from "../types";
+import { Category, Project, SiteSettings } from "../types";
 import { EditableText } from "./EditableText";
-import { ArrowRight, MousePointerClick, Trash2, LayoutGrid, Grid2x2 } from "lucide-react";
+import {
+  ArrowRight,
+  MousePointerClick,
+  Trash2,
+  Grid2x2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Image,
+  Box,
+  Globe,
+  Video
+} from "lucide-react";
 
 interface FocusWheelProps {
   categories: Category[];
   site: SiteSettings;
+  projects?: Project[];
   focusedIndex: number;
   onSetFocusedIndex: (index: number) => void;
   onSelectCategory: (category: Category) => void;
+  onSelectProject?: (project: Project) => void;
   isEditorActive: boolean;
   onUpdateCategory: (catId: string, field: keyof Category, value: string) => void;
   onUpdateSite: (field: keyof SiteSettings, value: string) => void;
@@ -62,12 +76,28 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+const MEDIUM_ICONS = {
+  web: Globe,
+  "3d": Box,
+  photo: Image,
+  video: Video
+};
+
+const MEDIUM_COLORS = {
+  web: "var(--accent-web)",
+  "3d": "var(--accent-3d)",
+  photo: "var(--accent-photo)",
+  video: "var(--accent-video)"
+};
+
 export const FocusWheel: React.FC<FocusWheelProps> = ({
   categories,
   site,
+  projects = [],
   focusedIndex,
   onSetFocusedIndex,
   onSelectCategory,
+  onSelectProject,
   isEditorActive,
   onUpdateCategory,
   onUpdateSite,
@@ -89,6 +119,13 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
   const dragStateRef = useRef<{ startAngle: number; startTotal: number } | null>(null);
 
   const currentCategory = categories[focusedIndex] || categories[0];
+  const currentProjects = projects.filter((p) => p.category === currentCategory.id);
+
+  const [previewSlideIndex, setPreviewSlideIndex] = useState<number>(0);
+
+  useEffect(() => {
+    setPreviewSlideIndex(0);
+  }, [currentCategory.id]);
 
   // Animate wheel rotation smoothly to target angle
   const animateRotationTo = useCallback((targetDeg: number, duration = 420) => {
@@ -402,20 +439,23 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
           </svg>
         </div>
 
-        {/* Right Half: Focus Detail Panel */}
-        <aside className="flex-1 max-w-lg px-6 md:px-12 md:pl-2 text-center md:text-left z-10">
-          <div className="flex items-center justify-center md:justify-start gap-3 mb-3">
+        {/* Right Half: Focus Detail Panel with Mini Slideshow Preview */}
+        <aside className="flex-1 max-w-lg px-6 md:px-8 text-center md:text-left z-10 flex flex-col justify-center">
+          <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
             <span className="font-mono text-xs text-[var(--muted)]">
               N°{String(focusedIndex + 1).padStart(2, "0")} / {String(N).padStart(2, "0")}
             </span>
             <span
-              className="w-3 h-3 rounded-full inline-block shadow-sm"
+              className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
               style={{ backgroundColor: currentCategory.color }}
             />
+            <span className="font-mono text-[10px] text-[var(--muted)] uppercase tracking-wider bg-[var(--surface-2)] px-2 py-0.5 rounded border border-[var(--line)]">
+              {currentProjects.length} {currentProjects.length === 1 ? "Project" : "Projects"}
+            </span>
           </div>
 
           {/* Section Title */}
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-[var(--text)] leading-tight">
+          <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-[var(--text)] leading-tight">
             <EditableText
               value={currentCategory.label}
               onSave={(val) => onUpdateCategory(currentCategory.id, "label", val)}
@@ -425,7 +465,7 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
           </h2>
 
           {/* Section Description */}
-          <p className="text-[var(--muted)] text-base leading-relaxed mb-8 max-w-prose">
+          <p className="text-[var(--muted)] text-xs sm:text-sm leading-relaxed mb-4 max-w-prose">
             <EditableText
               value={currentCategory.desc}
               onSave={(val) => onUpdateCategory(currentCategory.id, "desc", val)}
@@ -435,15 +475,122 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
             />
           </p>
 
+          {/* Mini Slideshow Preview of Section Projects (3 per row) */}
+          <div className="mb-5 bg-[var(--surface)] border border-[var(--line)] rounded-lg p-3 text-left shadow-sm">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-1.5 font-mono text-[11px] text-[var(--muted)]">
+                <Eye className="w-3.5 h-3.5 text-[var(--accent-web)]" />
+                <span className="font-semibold text-[var(--text)]">Section Works</span>
+                {currentProjects.length > 0 && (
+                  <span>
+                    ({Math.min(currentProjects.length, 3)} of {currentProjects.length})
+                  </span>
+                )}
+              </div>
+
+              {currentProjects.length > 3 && (
+                <div className="flex items-center gap-1 font-mono text-[10px] text-[var(--muted)]">
+                  <span>
+                    {previewSlideIndex + 1}-{Math.min(previewSlideIndex + 3, currentProjects.length)}
+                  </span>
+                  <button
+                    onClick={() => setPreviewSlideIndex((prev) => (prev - 1 + currentProjects.length) % currentProjects.length)}
+                    className="p-1 hover:bg-[var(--surface-2)] border border-[var(--line)] rounded text-[var(--muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
+                    title="Previous projects"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setPreviewSlideIndex((prev) => (prev + 1) % currentProjects.length)}
+                    className="p-1 hover:bg-[var(--surface-2)] border border-[var(--line)] rounded text-[var(--muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
+                    title="Next projects"
+                  >
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {currentProjects.length === 0 ? (
+              <div className="py-6 text-center text-[var(--muted)] font-mono text-xs border border-dashed border-[var(--line)] rounded">
+                No projects filed under this section yet.
+              </div>
+            ) : (
+              (() => {
+                // Slice 3 visible items starting from previewSlideIndex with cyclic wrap-around if needed
+                const visibleProjects = [];
+                const total = currentProjects.length;
+                const count = Math.min(total, 3);
+                for (let i = 0; i < count; i++) {
+                  visibleProjects.push(currentProjects[(previewSlideIndex + i) % total]);
+                }
+
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    {visibleProjects.map((proj) => {
+                      const Icon = MEDIUM_ICONS[proj.type] || Globe;
+                      const accentColor = MEDIUM_COLORS[proj.type] || "var(--accent-web)";
+
+                      return (
+                        <div
+                          key={proj.id}
+                          onClick={() => onSelectProject && onSelectProject(proj)}
+                          className="group relative bg-[var(--surface-2)] border border-[var(--line)] hover:border-[var(--muted)] rounded overflow-hidden cursor-pointer transition-all hover:scale-[1.02]"
+                          title={`View ${proj.title}`}
+                        >
+                          <div className="relative aspect-[4/3] overflow-hidden bg-black/40">
+                            {proj.type === "video" && proj.video ? (
+                              <video
+                                src={proj.video}
+                                muted
+                                loop
+                                autoPlay
+                                playsInline
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              />
+                            ) : (
+                              <img
+                                src={proj.cover}
+                                alt={proj.title}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              />
+                            )}
+
+                            {/* Mini Type Icon Badge */}
+                            <div className="absolute top-1 right-1 p-1 rounded-full bg-black/75 backdrop-blur-sm border border-white/10">
+                              <Icon className="w-2.5 h-2.5" style={{ color: accentColor }} />
+                            </div>
+
+                            {/* Compact Title Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex items-end p-1.5">
+                              <div className="w-full text-white">
+                                <p className="font-display font-bold text-[10px] leading-tight truncate">
+                                  {proj.title}
+                                </p>
+                                <p className="font-mono text-[8px] opacity-75">
+                                  {proj.year}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+
           <div className="flex items-center justify-center md:justify-start gap-3 flex-wrap">
             {/* Primary Action Button to Open Category Page */}
             <button
               onClick={() => onSelectCategory(currentCategory)}
-              className="inline-flex items-center gap-3 bg-[var(--text)] text-[var(--bg)] hover:opacity-90 px-6 py-3.5 rounded-full text-sm font-bold cursor-pointer transition-all shadow-md group"
+              className="inline-flex items-center gap-2.5 bg-[var(--text)] text-[var(--bg)] hover:opacity-90 px-5 py-2.5 rounded-full text-xs font-bold cursor-pointer transition-all shadow-md group"
             >
-              <Grid2x2 className="w-4 h-4 text-[var(--bg)]" />
-              <span>Open {currentCategory.label} Page</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <Grid2x2 className="w-3.5 h-3.5 text-[var(--bg)]" />
+              <span>Open {currentCategory.label} Page ({currentProjects.length})</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </button>
 
             {isEditorActive && onDeleteCategory && categories.length > 1 && (
@@ -453,10 +600,10 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
                     onDeleteCategory(currentCategory.id);
                   }
                 }}
-                className="p-3 border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
+                className="p-2.5 border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
                 title="Delete Section"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

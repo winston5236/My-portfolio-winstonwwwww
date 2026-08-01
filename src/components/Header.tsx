@@ -12,6 +12,7 @@ interface HeaderProps {
   onOpenAddCategory?: () => void;
   onOpenAddProject?: () => void;
   onGoHome?: () => void;
+  isCompact?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,14 +23,19 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLogin,
   onOpenAddCategory,
   onOpenAddProject,
-  onGoHome
+  onGoHome,
+  isCompact = false
 }) => {
   const formattedCount = String(sectionCount).padStart(2, "0") + " SECTIONS";
 
   return (
-    <header className="max-w-[1180px] mx-auto px-6 sm:px-8 pt-10 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <header className={`max-w-[1180px] mx-auto px-6 sm:px-8 transition-all duration-300 flex flex-col sm:flex-row sm:items-end justify-between gap-3 ${
+      isCompact ? "pt-3 pb-2 sm:pt-4 sm:pb-2 border-b border-[var(--line)]/40" : "pt-10 pb-4"
+    }`}>
       <div>
-        <span className="block font-mono text-xs tracking-widest text-[var(--muted)] mb-1 uppercase">
+        <span className={`block font-mono tracking-widest text-[var(--muted)] uppercase transition-all ${
+          isCompact ? "text-[10px] mb-0.5" : "text-xs mb-1"
+        }`}>
           {formattedCount}
         </span>
         <h1
@@ -38,7 +44,9 @@ export const Header: React.FC<HeaderProps> = ({
               onGoHome();
             }
           }}
-          className={`font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight m-0 text-[var(--text)] flex items-baseline ${
+          className={`font-display font-bold tracking-tight m-0 text-[var(--text)] flex items-baseline transition-all ${
+            isCompact ? "text-2xl sm:text-3xl md:text-3xl" : "text-4xl sm:text-5xl md:text-6xl"
+          } ${
             !isEditorActive && onGoHome ? "cursor-pointer group hover:opacity-90 transition-opacity" : ""
           }`}
           title={!isEditorActive ? "Return to Home Page" : undefined}

@@ -202,6 +202,7 @@ export default function App() {
         onUpdateSite={handleUpdateSite}
         sectionCount={categories.length}
         isEditorActive={isEditorActive}
+        isCompact={!!activeCategory}
         onOpenLogin={() => setIsEditorActive(!isEditorActive ? setLoginModalOpen(true) : setIsEditorActive(false))}
         onOpenAddCategory={() => setAddCategoryModalOpen(true)}
         onOpenAddProject={() => setAddProjectModalOpen(true)}
@@ -217,9 +218,11 @@ export default function App() {
           <FocusWheel
             categories={categories}
             site={site}
+            projects={projects}
             focusedIndex={focusedIndex}
             onSetFocusedIndex={setFocusedIndex}
             onSelectCategory={(cat) => setActiveCategory(cat)}
+            onSelectProject={(proj) => setSelectedProject(proj)}
             isEditorActive={isEditorActive}
             onUpdateCategory={handleUpdateCategory}
             onUpdateSite={handleUpdateSite}

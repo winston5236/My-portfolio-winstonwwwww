@@ -47,30 +47,50 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
   const categoryProjects = projects.filter((p) => p.category === category.id);
 
   return (
-    <div className="max-w-[1180px] mx-auto px-6 sm:px-8 py-8 min-h-[80vh] animate-fadeIn">
-      {/* Back Button */}
-      <button
-        onClick={onBackToWheel}
-        className="inline-flex items-center gap-2 text-sm font-mono text-[var(--muted)] hover:text-[var(--text)] transition-colors mb-8 cursor-pointer bg-transparent border-0 p-0"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to wheel</span>
-      </button>
+    <div className="max-w-[1180px] mx-auto px-6 sm:px-8 py-3 sm:py-4 min-h-[80vh] animate-fadeIn">
+      {/* Top Bar: Back Link & Clear Project Count Indicator */}
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <button
+          onClick={onBackToWheel}
+          className="inline-flex items-center gap-2 text-xs font-mono text-[var(--muted)] hover:text-[var(--text)] transition-colors cursor-pointer bg-transparent border-0 p-0"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to wheel</span>
+        </button>
+
+        {/* Clear Project Count Badge */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono shadow-sm">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }} />
+          <span className="font-bold text-[var(--text)]">{categoryProjects.length}</span>
+          <span className="text-[var(--muted)] uppercase tracking-wider text-[10px]">
+            {categoryProjects.length === 1 ? "Project" : "Projects"}
+          </span>
+        </div>
+      </div>
 
       {/* Category Header */}
-      <div className="mb-10 border-b border-[var(--line)] pb-8">
-        <span className="font-mono text-xs text-[var(--muted)] block mb-2">
-          N°{String(categoryIndex + 1).padStart(2, "0")} / {String(totalCategories).padStart(2, "0")}
-        </span>
-        <h2 className="font-display text-3xl sm:text-5xl font-bold mb-3" style={{ color: category.color }}>
-          <EditableText
-            value={category.label}
-            onSave={(val) => onUpdateCategory(category.id, "label", val)}
-            isEditorActive={isEditorActive}
-            tagName="span"
-          />
-        </h2>
-        <p className="text-[var(--muted)] text-base max-w-2xl leading-relaxed">
+      <div className="mb-5 border-b border-[var(--line)] pb-4">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="font-mono text-xs text-[var(--muted)] block">
+            N°{String(categoryIndex + 1).padStart(2, "0")} / {String(totalCategories).padStart(2, "0")}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-baseline gap-3 mb-2">
+          <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight" style={{ color: category.color }}>
+            <EditableText
+              value={category.label}
+              onSave={(val) => onUpdateCategory(category.id, "label", val)}
+              isEditorActive={isEditorActive}
+              tagName="span"
+            />
+          </h2>
+          <span className="text-xs font-mono text-[var(--muted)] bg-[var(--surface-2)] px-2.5 py-0.5 rounded border border-[var(--line)]">
+            total of {categoryProjects.length} {categoryProjects.length === 1 ? "project" : "projects"}
+          </span>
+        </div>
+
+        <p className="text-[var(--muted)] text-xs sm:text-sm max-w-2xl leading-relaxed">
           <EditableText
             value={category.desc}
             onSave={(val) => onUpdateCategory(category.id, "desc", val)}
@@ -81,12 +101,12 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
         </p>
 
         {isEditorActive && (
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mt-3 flex items-center gap-3">
             <button
               onClick={onAddProject}
-              className="inline-flex items-center gap-2 bg-[var(--surface-2)] text-[var(--text)] border border-[var(--line)] hover:border-[var(--muted)] px-4 py-2 rounded-full font-mono text-xs cursor-pointer transition-all"
+              className="inline-flex items-center gap-2 bg-[var(--surface-2)] text-[var(--text)] border border-[var(--line)] hover:border-[var(--muted)] px-3.5 py-1.5 rounded-full font-mono text-xs cursor-pointer transition-all"
             >
-              <Plus className="w-4 h-4 text-[var(--accent-web)]" />
+              <Plus className="w-3.5 h-3.5 text-[var(--accent-web)]" />
               <span>Add Project to {category.short}</span>
             </button>
           </div>
