@@ -54,14 +54,9 @@ export default function App() {
     }
   }, [theme, isEditorActive]);
 
-  // Track if state update originated from Firestore snapshot
-  const isRemoteUpdateRef = useRef<boolean>(false);
-  const isInitialMountRef = useRef<boolean>(true);
-
   // Subscribe to real-time Firestore database updates
   useEffect(() => {
     const unsubscribe = subscribeToPortfolio((remoteData) => {
-      isRemoteUpdateRef.current = true;
       setSite(remoteData.site);
       setTheme(remoteData.theme);
       setCategories(remoteData.categories);
@@ -70,32 +65,29 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync state changes to Firestore & localStorage
-  useEffect(() => {
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      return;
-    }
-
-    if (isRemoteUpdateRef.current) {
-      isRemoteUpdateRef.current = false;
-      return;
-    }
-
-    saveToFirestore({ site, theme, categories, projects });
-  }, [site, theme, categories, projects]);
-
-  // Update handlers
+  // Update handlers with immediate persistence
   const handleUpdateSite = (key: keyof SiteSettings, value: string) => {
-    setSite((prev) => ({ ...prev, [key]: value }));
+    setSite((prev) => {
+      const next = { ...prev, [key]: value };
+      saveToFirestore({ site: next, theme, categories, projects });
+      return next;
+    });
   };
 
   const handleUpdateTheme = (key: keyof ThemeSettings, value: string) => {
-    setTheme((prev) => ({ ...prev, [key]: value }));
+    setTheme((prev) => {
+      const next = { ...prev, [key]: value };
+      saveToFirestore({ site, theme: next, categories, projects });
+      return next;
+    });
   };
 
   const handleUpdateCategory = (catId: string, field: keyof Category, value: string) => {
-    setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, [field]: value } : c)));
+    setCategories((prev) => {
+      const next = prev.map((c) => (c.id === catId ? { ...c, [field]: value } : c));
+      saveToFirestore({ site, theme, categories: next, projects });
+      return next;
+    });
     if (activeCategory && activeCategory.id === catId) {
       setActiveCategory((prev) => (prev ? { ...prev, [field]: value } : null));
     }
@@ -106,20 +98,32 @@ export default function App() {
   };
 
   const handleUpdateProject = (projId: string, field: keyof Project, value: any) => {
-    setProjects((prev) => prev.map((p) => (p.id === projId ? { ...p, [field]: value } : p)));
+    setProjects((prev) => {
+      const next = prev.map((p) => (p.id === projId ? { ...p, [field]: value } : p));
+      saveToFirestore({ site, theme, categories, projects: next });
+      return next;
+    });
     if (selectedProject && selectedProject.id === projId) {
       setSelectedProject((prev) => (prev ? { ...prev, [field]: value } : null));
     }
   };
 
   const handleAddCategory = (newCat: Category) => {
-    setCategories((prev) => [...prev, newCat]);
+    setCategories((prev) => {
+      const next = [...prev, newCat];
+      saveToFirestore({ site, theme, categories: next, projects });
+      return next;
+    });
     setFocusedIndex(categories.length); // focus newly created section
     setActiveCategory(newCat); // Open the new section's dedicated page immediately
   };
 
   const handleDeleteCategory = (catId: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== catId));
+    setCategories((prev) => {
+      const next = prev.filter((c) => c.id !== catId);
+      saveToFirestore({ site, theme, categories: next, projects });
+      return next;
+    });
     setFocusedIndex(0);
     if (activeCategory && activeCategory.id === catId) {
       setActiveCategory(null);
@@ -127,11 +131,19 @@ export default function App() {
   };
 
   const handleAddProject = (newProj: Project) => {
-    setProjects((prev) => [newProj, ...prev]);
+    setProjects((prev) => {
+      const next = [newProj, ...prev];
+      saveToFirestore({ site, theme, categories, projects: next });
+      return next;
+    });
   };
 
   const handleDeleteProject = (projId: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== projId));
+    setProjects((prev) => {
+      const next = prev.filter((p) => p.id !== projId);
+      saveToFirestore({ site, theme, categories, projects: next });
+      return next;
+    });
     if (selectedProject && selectedProject.id === projId) {
       setSelectedProject(null);
     }
@@ -140,12 +152,14 @@ export default function App() {
   const handleClearAllProjects = () => {
     if (window.confirm("Are you sure you want to clear all projects? This will leave your portfolio clean so you can manually add your own projects.")) {
       setProjects([]);
+      saveToFirestore({ site, theme, categories, projects: [] });
       setSelectedProject(null);
     }
   };
 
   const handleResetColors = () => {
     setTheme(DEFAULT_THEME);
+    saveToFirestore({ site, theme: DEFAULT_THEME, categories, projects });
   };
 
   // Export standalone portfolio config

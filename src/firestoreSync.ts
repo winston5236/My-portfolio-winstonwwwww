@@ -11,56 +11,17 @@ export interface PortfolioData {
 }
 
 const PORTFOLIO_DOC = doc(db, "portfolio", "main");
-const QUOTA_KEY = "portfolio_quota_exceeded_timestamp";
 
 let isQuotaExceeded = false;
 let pendingSaveData: PortfolioData | null = null;
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function getQuotaExceeded(): boolean {
-  return isQuotaExceeded || checkQuotaExceeded();
-}
-
-function checkQuotaExceeded(): boolean {
-  try {
-    const timestampStr = localStorage.getItem(QUOTA_KEY);
-    if (timestampStr) {
-      const timestamp = parseInt(timestampStr, 10);
-      // Spark free tier quota resets daily (~12 hours fallback)
-      if (Date.now() - timestamp < 12 * 60 * 60 * 1000) {
-        return true;
-      } else {
-        localStorage.removeItem(QUOTA_KEY);
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-  return false;
-}
-
-function markQuotaExceeded() {
-  isQuotaExceeded = true;
-  try {
-    localStorage.setItem(QUOTA_KEY, Date.now().toString());
-  } catch (e) {}
-  console.warn("Firestore daily write quota reached. App is operating seamlessly with Local Storage persistence.");
+  return isQuotaExceeded;
 }
 
 export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
-  isQuotaExceeded = checkQuotaExceeded();
-
   const localState = loadPortfolioState();
-
-  if (isQuotaExceeded) {
-    onData({
-      site: localState.site,
-      theme: localState.theme,
-      categories: localState.categories,
-      projects: localState.projects,
-    });
-    return () => {};
-  }
 
   let unsubMain = () => {};
 
@@ -77,16 +38,9 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
             ? val.updatedAtMs
             : (val.updatedAt ? new Date(val.updatedAt).getTime() : 0);
 
-          // If local data is newer than remote snapshot, preserve local data!
-          if (localTime > remoteTime + 1000) {
+          // If local data is newer or updated recently, preserve local data
+          if (localTime > remoteTime) {
             onData({
-              site: currentLocal.site,
-              theme: currentLocal.theme,
-              categories: currentLocal.categories,
-              projects: currentLocal.projects,
-            });
-            // Try pushing local changes to Firestore
-            saveToFirestore({
               site: currentLocal.site,
               theme: currentLocal.theme,
               categories: currentLocal.categories,
@@ -95,11 +49,11 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
             return;
           }
 
-          // Remote data is equal or newer: adopt remote
+          // Remote data is newer or equal: adopt remote
           const remoteSite = { ...DEFAULT_SITE, ...(val.site || {}) };
           const remoteTheme = { ...DEFAULT_THEME, ...(val.theme || {}) };
           const remoteCategories = Array.isArray(val.categories) && val.categories.length ? val.categories : DEFAULT_CATEGORIES;
-          const remoteProjects = Array.isArray(val.projects) ? val.projects : (currentLocal.projects || DEFAULT_PROJECTS);
+          const remoteProjects = Array.isArray(val.projects) ? val.projects : DEFAULT_PROJECTS;
 
           const newData: PortfolioData = {
             site: remoteSite,
@@ -111,13 +65,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
           savePortfolioState({ ...newData, updatedAt: remoteTime || Date.now() });
           onData(newData);
         } else {
-          // New doc: write localState to Firestore
-          saveToFirestore({
-            site: localState.site,
-            theme: localState.theme,
-            categories: localState.categories,
-            projects: localState.projects,
-          });
+          // Initialize remote doc with local data if doc doesn't exist
           onData({
             site: localState.site,
             theme: localState.theme,
@@ -128,27 +76,29 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       },
       (err: any) => {
         if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
-          markQuotaExceeded();
+          isQuotaExceeded = true;
         } else {
           console.warn("Firestore snapshot notice:", err?.message || err);
         }
+        const fallback = loadPortfolioState();
         onData({
-          site: localState.site,
-          theme: localState.theme,
-          categories: localState.categories,
-          projects: localState.projects,
+          site: fallback.site,
+          theme: fallback.theme,
+          categories: fallback.categories,
+          projects: fallback.projects,
         });
       }
     );
   } catch (err: any) {
     if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
-      markQuotaExceeded();
+      isQuotaExceeded = true;
     }
+    const fallback = loadPortfolioState();
     onData({
-      site: localState.site,
-      theme: localState.theme,
-      categories: localState.categories,
-      projects: localState.projects,
+      site: fallback.site,
+      theme: fallback.theme,
+      categories: fallback.categories,
+      projects: fallback.projects,
     });
   }
 
@@ -160,11 +110,10 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
 export async function saveToFirestore(data: PortfolioData) {
   const now = Date.now();
 
-  // 1. Immediately save to LocalStorage with timestamp for zero latency & refresh persistence
+  // 1. ALWAYS save to LocalStorage immediately for instant persistence across refreshes
   savePortfolioState({ ...data, updatedAt: now });
 
-  if (isQuotaExceeded || checkQuotaExceeded()) {
-    isQuotaExceeded = true;
+  if (isQuotaExceeded) {
     return;
   }
 
@@ -177,7 +126,6 @@ export async function saveToFirestore(data: PortfolioData) {
     const toSave = pendingSaveData;
 
     try {
-      // 1 single atomic write to PORTFOLIO_DOC
       await setDoc(
         PORTFOLIO_DOC,
         {
@@ -192,12 +140,12 @@ export async function saveToFirestore(data: PortfolioData) {
       );
     } catch (err: any) {
       if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
-        markQuotaExceeded();
+        isQuotaExceeded = true;
       } else {
         console.warn("Firestore save notice:", err?.message || err);
       }
     } finally {
       pendingSaveData = null;
     }
-  }, 200);
+  }, 150);
 }
