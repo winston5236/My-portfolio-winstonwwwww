@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Project } from "../types";
 import { ThreeModelViewer } from "./ThreeModelViewer";
 import { EditableText } from "./EditableText";
-import { X, ExternalLink, Plus, Trash2, Upload, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Maximize2, ZoomIn, Crop, Check, Sparkles } from "lucide-react";
+import { X, ExternalLink, Plus, Trash2, Upload, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Maximize2, ZoomIn, Crop, Check, Sparkles, Globe } from "lucide-react";
 
 interface ProjectOverlayModalProps {
   project: Project | null;
