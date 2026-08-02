@@ -4,5 +4,8 @@ service cloud.firestore {
     match /portfolio/{portfolioId} {
       allow read, write: if true;
     }
+    match /portfolio_projects/{projectId} {
+      allow read, write: if true;
+    }
   }
 }

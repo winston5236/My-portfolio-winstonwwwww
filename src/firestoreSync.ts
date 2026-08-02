@@ -20,6 +20,30 @@ export function getQuotaExceeded(): boolean {
   return isQuotaExceeded;
 }
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    operationType,
+    path
+  };
+  console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
+}
+
 export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   let currentSite = DEFAULT_SITE;
   let currentTheme = DEFAULT_THEME;
@@ -111,7 +135,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       notify();
     },
     (err) => {
-      console.warn("Main doc snapshot notice:", err);
+      handleFirestoreError(err, OperationType.GET, "portfolio/main");
       isMainLoaded = true;
       notify();
     }
@@ -147,7 +171,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       notify();
     },
     (err) => {
-      console.warn("Projects collection snapshot notice:", err);
+      handleFirestoreError(err, OperationType.GET, "portfolio_projects");
       isProjectsLoaded = true;
       notify();
     }
@@ -210,7 +234,7 @@ export async function saveToFirestore(data: PortfolioData) {
         isQuotaExceeded = true;
         console.warn("Firestore Quota Limit Exceeded for today. Operating smoothly in local storage mode.");
       } else {
-        console.error("Error saving portfolio to Firestore:", err);
+        handleFirestoreError(err, OperationType.WRITE, "portfolio_projects");
       }
     }
   }, 800);

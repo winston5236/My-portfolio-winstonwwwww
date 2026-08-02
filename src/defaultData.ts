@@ -72,6 +72,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
   }
 ];
 
+const PLACEHOLDER_COVER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'><rect width='100%' height='100%' fill='%231a1c20'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%238d9199' font-family='monospace' font-size='18'>Upload Cover Image</text></svg>";
+
 export const DEFAULT_PROJECTS: Project[] = [
   {
     id: "001",
@@ -80,20 +82,12 @@ export const DEFAULT_PROJECTS: Project[] = [
     type: "web",
     year: "2026",
     tags: ["product", "react", "ux-research"],
-    desc: "A minimal daily-journaling web application with mood tracking, typography presets, and weekly recaps. Built front-to-back.",
-    cover: "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=1000&q=80",
+    desc: "A minimal daily-journaling web application with mood tracking, typography presets, and weekly recaps.",
+    cover: PLACEHOLDER_COVER,
     link: "https://example.com",
-    processImages: [
-      "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1000&q=80",
-      "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&w=1000&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=1000&q=80",
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1000&q=80"
-    ],
-    videos: [
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-    ],
+    processImages: [],
+    finalImages: [],
+    videos: [],
     models: []
   },
   {
@@ -104,23 +98,11 @@ export const DEFAULT_PROJECTS: Project[] = [
     year: "2025",
     tags: ["furniture", "3d-modeling", "ergonomics"],
     desc: "A form study for an ergonomic lounge chair, modeled with an emphasis on a single continuous curved shell.",
-    cover: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1000&q=80",
-    model: "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
-    link: "https://sketchfab.com",
-    processImages: [
-      "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80",
-      "https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1000&q=80",
-      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1000&q=80"
-    ],
-    videos: [
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    ],
-    models: [
-      "https://modelviewer.dev/shared-assets/models/Astronaut.glb"
-    ]
+    cover: PLACEHOLDER_COVER,
+    processImages: [],
+    finalImages: [],
+    videos: [],
+    models: []
   },
   {
     id: "003",
@@ -129,16 +111,10 @@ export const DEFAULT_PROJECTS: Project[] = [
     type: "photo",
     year: "2025",
     tags: ["travel", "35mm", "landscape"],
-    desc: "A collection of architectural and natural stills from a week driving along the northern Pacific coastline, shot on medium format film.",
-    cover: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80",
-    processImages: [
-      "https://images.unsplash.com/photo-1471922694854-ff1b63b20054?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1200&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80"
-    ],
+    desc: "A collection of architectural and natural stills from a week driving along the northern Pacific coastline.",
+    cover: PLACEHOLDER_COVER,
+    processImages: [],
+    finalImages: [],
     videos: [],
     models: []
   },
@@ -150,15 +126,9 @@ export const DEFAULT_PROJECTS: Project[] = [
     year: "2024",
     tags: ["dashboard", "data-viz", "react"],
     desc: "An invoicing and time-tracking dashboard featuring interactive canvas charts, real-time metrics, and dark mode UI.",
-    cover: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=80",
-    link: "https://example.com",
-    processImages: [
-      "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1000&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=80",
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1000&q=80"
-    ],
+    cover: PLACEHOLDER_COVER,
+    processImages: [],
+    finalImages: [],
     videos: [],
     models: []
   },
@@ -170,18 +140,11 @@ export const DEFAULT_PROJECTS: Project[] = [
     year: "2024",
     tags: ["sculpture", "material-study", "biomimicry"],
     desc: "A series of vessel forms exploring bone-like internal lattice structures, developed around a low-waste ceramic 3D casting process.",
-    cover: "https://images.unsplash.com/photo-1612196808214-b8e1d6145a8c?auto=format&fit=crop&w=1000&q=80",
-    model: "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
-    processImages: [
-      "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1612196808214-b8e1d6145a8c?auto=format&fit=crop&w=1000&q=80"
-    ],
+    cover: PLACEHOLDER_COVER,
+    processImages: [],
+    finalImages: [],
     videos: [],
-    models: [
-      "https://modelviewer.dev/shared-assets/models/Astronaut.glb"
-    ]
+    models: []
   },
   {
     id: "006",
@@ -191,14 +154,9 @@ export const DEFAULT_PROJECTS: Project[] = [
     year: "2023",
     tags: ["street", "night", "architecture"],
     desc: "A photographic spatial study analyzing how temporary stalls and ambient neon light organize human traffic in night markets.",
-    cover: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1000&q=80",
-    processImages: [
-      "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80"
-    ],
+    cover: PLACEHOLDER_COVER,
+    processImages: [],
+    finalImages: [],
     videos: [],
     models: []
   },
@@ -209,18 +167,11 @@ export const DEFAULT_PROJECTS: Project[] = [
     type: "video",
     year: "2026",
     tags: ["motion", "kinetic", "video"],
-    desc: "A 4K motion study exploring physical inertia, magnetic linkage, and sound design in parametric kinetic art.",
-    cover: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1000&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    processImages: [
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1000&q=80"
-    ],
-    finalImages: [
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1000&q=80"
-    ],
-    videos: [
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    ],
+    desc: "A motion study exploring physical inertia, magnetic linkage, and sound design in parametric kinetic art.",
+    cover: PLACEHOLDER_COVER,
+    processImages: [],
+    finalImages: [],
+    videos: [],
     models: []
   }
 ];
@@ -237,11 +188,30 @@ export function loadPortfolioState(): {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+
+      // Clean old sample/unsplash URLs from local cache if present
+      const cleanedProjects = (parsed.projects || []).map((p: Project) => {
+        const isUnsplashCover = p.cover && p.cover.includes("unsplash.com");
+        const cleanProcess = (p.processImages || []).filter((url) => !url.includes("unsplash.com"));
+        const cleanFinal = (p.finalImages || []).filter((url) => !url.includes("unsplash.com"));
+        const cleanVideos = (p.videos || []).filter((url) => !url.includes("gtv-videos-bucket"));
+        const cleanModels = (p.models || []).filter((url) => !url.includes("modelviewer.dev"));
+
+        return {
+          ...p,
+          cover: isUnsplashCover ? PLACEHOLDER_COVER : p.cover || PLACEHOLDER_COVER,
+          processImages: cleanProcess,
+          finalImages: cleanFinal,
+          videos: cleanVideos,
+          models: cleanModels
+        };
+      });
+
       return {
         site: { ...DEFAULT_SITE, ...parsed.site },
         theme: { ...DEFAULT_THEME, ...parsed.theme },
         categories: parsed.categories && parsed.categories.length ? parsed.categories : DEFAULT_CATEGORIES,
-        projects: parsed.projects && parsed.projects.length ? parsed.projects : DEFAULT_PROJECTS
+        projects: cleanedProjects.length ? cleanedProjects : DEFAULT_PROJECTS
       };
     }
   } catch (e) {
