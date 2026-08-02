@@ -17,19 +17,20 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
   activeCategoryId,
   onAddProject
 }) => {
-  if (!isOpen) return null;
-
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState(activeCategoryId || categories[0]?.id || "form");
   const [type, setType] = useState<MediaType>("web");
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [desc, setDesc] = useState("");
   const [cover, setCover] = useState("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80");
+  const [processImage, setProcessImage] = useState("https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1000&q=80");
   const [coverFit, setCoverFit] = useState<"cover" | "contain">("cover");
   const [link, setLink] = useState("");
   const [model, setModel] = useState("");
   const [video, setVideo] = useState("");
   const [tagsInput, setTagsInput] = useState("design, archive");
+
+  if (!isOpen) return null;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,12 +44,26 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleProcessFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setProcessImage(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     const id = String(Math.floor(100 + Math.random() * 900));
     const tags = tagsInput.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
+
+    const procImg = processImage.trim() || cover;
 
     const newProj: Project = {
       id,
@@ -61,6 +76,8 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
       cover,
       coverFit,
       link: link.trim() || undefined,
+      processImages: [procImg],
+      finalImages: [cover],
       model: type === "3d" ? model.trim() || "https://modelviewer.dev/shared-assets/models/Astronaut.glb" : undefined,
       video: type === "video" ? video.trim() || undefined : undefined,
       images: type === "photo" ? [cover] : undefined
@@ -165,7 +182,7 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-[var(--muted)] mb-1">Cover Image (URL or Upload)</label>
+            <label className="block text-[var(--muted)] mb-1">Project Thumbnail / Card Cover (URL or Upload)</label>
             <div className="flex gap-2 mb-2">
               <input
                 type="url"
@@ -178,6 +195,24 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 <Upload className="w-3.5 h-3.5" />
                 <span>Upload</span>
                 <input type="file" onChange={handleFileUpload} accept="image/*" className="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[var(--muted)] mb-1">Process Image / Exploration Sketch (URL or Upload)</label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="url"
+                value={processImage}
+                onChange={(e) => setProcessImage(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 bg-[var(--surface-2)] border border-[var(--line)] focus:border-[var(--accent-web)] text-[var(--text)] px-3 py-2 rounded outline-none"
+              />
+              <label className="px-3 py-2 bg-[var(--surface-2)] border border-[var(--line)] hover:border-[var(--accent-web)] rounded cursor-pointer flex items-center gap-1 text-[var(--text)]">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload</span>
+                <input type="file" onChange={handleProcessFileUpload} accept="image/*" className="hidden" />
               </label>
             </div>
           </div>

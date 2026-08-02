@@ -20,7 +20,7 @@ interface CategoryViewProps {
 const MEDIUM_ICONS = {
   web: Globe,
   "3d": Box,
-  photo: Image,
+  photo: ImageIcon,
   video: Video
 };
 
@@ -46,11 +46,27 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
 }) => {
   const categoryProjects = projects.filter((p) => p.category === category.id);
 
+  const handleCoverChange = (projectId: string, newCoverUrl: string) => {
+    const proj = categoryProjects.find((p) => p.id === projectId);
+    if (proj) {
+      const pItems = (proj.processImages && proj.processImages.length > 0)
+        ? proj.processImages
+        : (proj.images && proj.images.length > 0 ? proj.images : [proj.cover]);
+      if (!proj.processImages || proj.processImages.length === 0) {
+        onUpdateProject(projectId, "processImages", [...pItems]);
+      }
+      if (!proj.finalImages || proj.finalImages.length === 0) {
+        onUpdateProject(projectId, "finalImages", [proj.cover]);
+      }
+    }
+    onUpdateProject(projectId, "cover", newCoverUrl);
+  };
+
   const handleCoverFileUpload = (projectId: string, file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
       if (reader.result) {
-        onUpdateProject(projectId, "cover", reader.result as string);
+        handleCoverChange(projectId, reader.result as string);
       }
     };
     reader.readAsDataURL(file);
@@ -239,7 +255,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                             e.stopPropagation();
                             const newUrl = prompt("Enter new cover image URL (or paste image link):", project.cover);
                             if (newUrl && newUrl.trim()) {
-                              onUpdateProject(project.id, "cover", newUrl.trim());
+                              handleCoverChange(project.id, newUrl.trim());
                             }
                           }}
                           className="px-2 py-1 bg-black/90 hover:bg-black border border-white/20 text-white rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer shadow-md transition-colors"

@@ -82,36 +82,20 @@ export default function App() {
       return;
     }
 
-    const timer = setTimeout(() => {
-      saveToFirestore({ site, theme, categories, projects });
-    }, 300);
-
-    return () => clearTimeout(timer);
+    saveToFirestore({ site, theme, categories, projects });
   }, [site, theme, categories, projects]);
 
   // Update handlers
   const handleUpdateSite = (key: keyof SiteSettings, value: string) => {
-    setSite((prev) => {
-      const updated = { ...prev, [key]: value };
-      saveToFirestore({ site: updated, theme, categories, projects });
-      return updated;
-    });
+    setSite((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleUpdateTheme = (key: keyof ThemeSettings, value: string) => {
-    setTheme((prev) => {
-      const updated = { ...prev, [key]: value };
-      saveToFirestore({ site, theme: updated, categories, projects });
-      return updated;
-    });
+    setTheme((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleUpdateCategory = (catId: string, field: keyof Category, value: string) => {
-    setCategories((prev) => {
-      const updated = prev.map((c) => (c.id === catId ? { ...c, [field]: value } : c));
-      saveToFirestore({ site, theme, categories: updated, projects });
-      return updated;
-    });
+    setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, [field]: value } : c)));
     if (activeCategory && activeCategory.id === catId) {
       setActiveCategory((prev) => (prev ? { ...prev, [field]: value } : null));
     }
@@ -122,32 +106,20 @@ export default function App() {
   };
 
   const handleUpdateProject = (projId: string, field: keyof Project, value: any) => {
-    setProjects((prev) => {
-      const updated = prev.map((p) => (p.id === projId ? { ...p, [field]: value } : p));
-      saveToFirestore({ site, theme, categories, projects: updated });
-      return updated;
-    });
+    setProjects((prev) => prev.map((p) => (p.id === projId ? { ...p, [field]: value } : p)));
     if (selectedProject && selectedProject.id === projId) {
       setSelectedProject((prev) => (prev ? { ...prev, [field]: value } : null));
     }
   };
 
   const handleAddCategory = (newCat: Category) => {
-    setCategories((prev) => {
-      const updated = [...prev, newCat];
-      saveToFirestore({ site, theme, categories: updated, projects });
-      return updated;
-    });
+    setCategories((prev) => [...prev, newCat]);
     setFocusedIndex(categories.length); // focus newly created section
     setActiveCategory(newCat); // Open the new section's dedicated page immediately
   };
 
   const handleDeleteCategory = (catId: string) => {
-    setCategories((prev) => {
-      const updated = prev.filter((c) => c.id !== catId);
-      saveToFirestore({ site, theme, categories: updated, projects });
-      return updated;
-    });
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
     setFocusedIndex(0);
     if (activeCategory && activeCategory.id === catId) {
       setActiveCategory(null);
@@ -155,19 +127,11 @@ export default function App() {
   };
 
   const handleAddProject = (newProj: Project) => {
-    setProjects((prev) => {
-      const updated = [newProj, ...prev];
-      saveToFirestore({ site, theme, categories, projects: updated });
-      return updated;
-    });
+    setProjects((prev) => [newProj, ...prev]);
   };
 
   const handleDeleteProject = (projId: string) => {
-    setProjects((prev) => {
-      const updated = prev.filter((p) => p.id !== projId);
-      saveToFirestore({ site, theme, categories, projects: updated });
-      return updated;
-    });
+    setProjects((prev) => prev.filter((p) => p.id !== projId));
     if (selectedProject && selectedProject.id === projId) {
       setSelectedProject(null);
     }
@@ -175,7 +139,6 @@ export default function App() {
 
   const handleResetColors = () => {
     setTheme(DEFAULT_THEME);
-    saveToFirestore({ site, theme: DEFAULT_THEME, categories, projects });
   };
 
   // Export standalone portfolio config
@@ -203,7 +166,13 @@ export default function App() {
         sectionCount={categories.length}
         isEditorActive={isEditorActive}
         isCompact={!!activeCategory}
-        onOpenLogin={() => setIsEditorActive(!isEditorActive ? setLoginModalOpen(true) : setIsEditorActive(false))}
+        onOpenLogin={() => {
+          if (!isEditorActive) {
+            setLoginModalOpen(true);
+          } else {
+            setIsEditorActive(false);
+          }
+        }}
         onOpenAddCategory={() => setAddCategoryModalOpen(true)}
         onOpenAddProject={() => setAddProjectModalOpen(true)}
         onGoHome={() => {
@@ -247,12 +216,12 @@ export default function App() {
 
       {/* Project Detail Overlay Modal */}
       <ProjectOverlayModal
-        project={selectedProject}
+        project={selectedProject ? (projects.find((p) => p.id === selectedProject.id) || selectedProject) : null}
         onClose={() => setSelectedProject(null)}
         isEditorActive={isEditorActive}
         onUpdateProject={handleUpdateProject}
-        categoryName={activeCategory?.label || categories.find((c) => c.id === selectedProject?.category)?.label}
-        categoryColor={activeCategory?.color || categories.find((c) => c.id === selectedProject?.category)?.color}
+        categoryName={activeCategory?.label || categories.find((c) => c.id === (selectedProject ? (projects.find((p) => p.id === selectedProject.id)?.category || selectedProject.category) : undefined))?.label}
+        categoryColor={activeCategory?.color || categories.find((c) => c.id === (selectedProject ? (projects.find((p) => p.id === selectedProject.id)?.category || selectedProject.category) : undefined))?.color}
       />
 
       {/* Login Modal */}

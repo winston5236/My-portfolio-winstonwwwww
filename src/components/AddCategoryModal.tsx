@@ -13,12 +13,12 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   onClose,
   onAddCategory
 }) => {
-  if (!isOpen) return null;
-
   const [label, setLabel] = useState("");
   const [short, setShort] = useState("");
   const [desc, setDesc] = useState("");
   const [color, setColor] = useState("#8b7bff");
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

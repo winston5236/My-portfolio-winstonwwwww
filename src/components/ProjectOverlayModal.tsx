@@ -23,8 +23,6 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   categoryName = "General",
   categoryColor = "#8b7bff"
 }) => {
-  if (!project) return null;
-
   // Quadrant active slide indices
   const [processIdx, setProcessIdx] = useState<number>(0);
   const [finalIdx, setFinalIdx] = useState<number>(0);
@@ -43,47 +41,33 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   const [urlInput, setUrlInput] = useState<string>("");
 
   // Get quadrant media arrays with fallback defaults
-  const processItems = (project.processImages && project.processImages.length > 0)
-    ? project.processImages
-    : (project.images && project.images.length > 0 ? project.images : [project.cover]);
+  const processItems = project
+    ? ((project.processImages && project.processImages.length > 0)
+        ? project.processImages
+        : (project.images && project.images.length > 0 ? project.images : [project.cover]))
+    : [];
 
-  const finalItems = (project.finalImages && project.finalImages.length > 0)
-    ? project.finalImages
-    : [project.cover];
+  const finalItems = project
+    ? ((project.finalImages && project.finalImages.length > 0)
+        ? project.finalImages
+        : [project.cover])
+    : [];
 
-  const videoItems = (project.videos && project.videos.length > 0)
-    ? project.videos
-    : (project.video ? [project.video] : []);
+  const videoItems = project
+    ? ((project.videos && project.videos.length > 0)
+        ? project.videos
+        : (project.video ? [project.video] : []))
+    : [];
 
-  const modelItems = (project.models && project.models.length > 0)
-    ? project.models
-    : (project.model ? [project.model] : []);
-
-  const handleCoverFileUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result) {
-        onUpdateProject(project.id, "cover", reader.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Safe index bounds
-  const currentProcessImg = processItems[processIdx % processItems.length] || project.cover;
-  const currentFinalImg = finalItems[finalIdx % finalItems.length] || project.cover;
-  const currentVideo = videoItems[videoIdx % videoItems.length];
-  const currentModel = modelItems[modelIdx % modelItems.length];
-
-  // Open Full Uncropped Lightbox
-  const handleOpenLightbox = (type: "process" | "final", initialIdx: number) => {
-    setLightboxType(type);
-    setLightboxIdx(initialIdx);
-    setLightboxOpen(true);
-  };
+  const modelItems = project
+    ? ((project.models && project.models.length > 0)
+        ? project.models
+        : (project.model ? [project.model] : []))
+    : [];
 
   // Keyboard Navigation for Lightbox & Esc to Close
   useEffect(() => {
+    if (!project) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!lightboxOpen) return;
 
@@ -101,7 +85,42 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lightboxOpen, lightboxType, processItems, finalItems]);
+  }, [lightboxOpen, lightboxType, processItems, finalItems, project]);
+
+  if (!project) return null;
+
+  const handleCoverChange = (newCoverUrl: string) => {
+    if (!project.processImages || project.processImages.length === 0) {
+      onUpdateProject(project.id, "processImages", [...processItems]);
+    }
+    if (!project.finalImages || project.finalImages.length === 0) {
+      onUpdateProject(project.id, "finalImages", [...finalItems]);
+    }
+    onUpdateProject(project.id, "cover", newCoverUrl);
+  };
+
+  const handleCoverFileUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result) {
+        handleCoverChange(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Safe index bounds
+  const currentProcessImg = processItems[processIdx % processItems.length] || project.cover;
+  const currentFinalImg = finalItems[finalIdx % finalItems.length] || project.cover;
+  const currentVideo = videoItems[videoIdx % videoItems.length];
+  const currentModel = modelItems[modelIdx % modelItems.length];
+
+  // Open Full Uncropped Lightbox
+  const handleOpenLightbox = (type: "process" | "final", initialIdx: number) => {
+    setLightboxType(type);
+    setLightboxIdx(initialIdx);
+    setLightboxOpen(true);
+  };
 
   const handleOpenUpload = (quadrant: MediaTargetQuadrant, idxToReplace: number | null = null) => {
     setTargetQuadrant(quadrant);
@@ -644,7 +663,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                     onClick={() => {
                       const newUrl = prompt("Enter thumbnail image URL (or paste link):", project.cover);
                       if (newUrl && newUrl.trim()) {
-                        onUpdateProject(project.id, "cover", newUrl.trim());
+                        handleCoverChange(newUrl.trim());
                       }
                     }}
                     className="px-3 py-1.5 rounded text-xs font-mono bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] text-[var(--muted)] hover:text-white flex items-center gap-1.5 cursor-pointer transition-colors"
@@ -713,7 +732,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onUpdateProject(project.id, "cover", imgUrl);
+                            handleCoverChange(imgUrl);
                           }}
                           className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
                             isCurrentThumbnail
@@ -796,7 +815,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onUpdateProject(project.id, "cover", imgUrl);
+                            handleCoverChange(imgUrl);
                           }}
                           className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
                             isCurrentThumbnail

@@ -12,11 +12,11 @@ export const EditorLoginModal: React.FC<EditorLoginModalProps> = ({
   onClose,
   onLoginSuccess
 }) => {
-  if (!isOpen) return null;
-
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
