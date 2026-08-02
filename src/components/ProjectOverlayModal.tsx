@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Project } from "../types";
 import { ThreeModelViewer } from "./ThreeModelViewer";
 import { EditableText } from "./EditableText";
-import { X, ExternalLink, Plus, Trash2, Upload, RefreshCw, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { X, ExternalLink, Plus, Trash2, Upload, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Maximize2, ZoomIn } from "lucide-react";
 
 interface ProjectOverlayModalProps {
   project: Project | null;
@@ -30,6 +30,11 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   const [finalIdx, setFinalIdx] = useState<number>(0);
   const [videoIdx, setVideoIdx] = useState<number>(0);
   const [modelIdx, setModelIdx] = useState<number>(0);
+
+  // Lightbox Modal state for full uncropped pop-up slideshow
+  const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
+  const [lightboxType, setLightboxType] = useState<"process" | "final">("process");
+  const [lightboxIdx, setLightboxIdx] = useState<number>(0);
 
   // Upload/Edit media modal state
   const [uploadModalOpen, setUploadModalOpen] = useState<boolean>(false);
@@ -59,6 +64,34 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   const currentFinalImg = finalItems[finalIdx % finalItems.length] || project.cover;
   const currentVideo = videoItems[videoIdx % videoItems.length];
   const currentModel = modelItems[modelIdx % modelItems.length];
+
+  // Open Full Uncropped Lightbox
+  const handleOpenLightbox = (type: "process" | "final", initialIdx: number) => {
+    setLightboxType(type);
+    setLightboxIdx(initialIdx);
+    setLightboxOpen(true);
+  };
+
+  // Keyboard Navigation for Lightbox & Esc to Close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!lightboxOpen) return;
+
+      const items = lightboxType === "process" ? processItems : finalItems;
+      if (items.length === 0) return;
+
+      if (e.key === "ArrowLeft") {
+        setLightboxIdx((prev) => (prev - 1 + items.length) % items.length);
+      } else if (e.key === "ArrowRight") {
+        setLightboxIdx((prev) => (prev + 1) % items.length);
+      } else if (e.key === "Escape") {
+        setLightboxOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxOpen, lightboxType, processItems, finalItems]);
 
   const handleOpenUpload = (quadrant: MediaTargetQuadrant, idxToReplace: number | null = null) => {
     setTargetQuadrant(quadrant);
@@ -156,38 +189,54 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
         </button>
 
         {/* =========================================================================
-            4 QUADRANTS MEDIA DISPLAY AREA (1/4 Process, 1/4 Final, 1/4 Videos, 1/4 3D OBJ)
+            4 QUADRANTS MEDIA DISPLAY AREA (LEFT: Final, RIGHT: Process)
             ========================================================================= */}
         <div className="w-full bg-[#0d0e11] border-b border-[var(--line)]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1 p-1 bg-black/40">
 
-            {/* QUADRANT 1: PROCESS SLIDESHOW */}
+            {/* QUADRANT 1 (LEFT TOP): FINAL SLIDESHOW */}
             <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q1 border border-[var(--line)]/50 rounded-sm">
-              <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-web)] font-bold">
-                <ImageIcon className="w-3 h-3 text-[var(--accent-web)]" />
-                <span>PROCESS ({processItems.length > 0 ? `${(processIdx % processItems.length) + 1}/${processItems.length}` : "0/0"})</span>
+              <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-photo)] font-bold shadow-md">
+                <ImageIcon className="w-3 h-3 text-[var(--accent-photo)]" />
+                <span>FINAL ({finalItems.length > 0 ? `${(finalIdx % finalItems.length) + 1}/${finalItems.length}` : "0/0"})</span>
               </div>
 
+              {/* Expand Full Lightbox Button */}
+              <button
+                onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
+                className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q1:opacity-100 transition-all cursor-pointer shadow-md"
+                title="View Full Uncropped Image"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-photo)]" />
+              </button>
+
               <img
-                src={currentProcessImg}
-                alt={`${project.title} process`}
-                className="w-full h-full object-cover transition-all duration-300"
+                src={currentFinalImg}
+                alt={`${project.title} final`}
+                onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
+                className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
               />
 
               {/* Prev / Next Arrows */}
-              {processItems.length > 1 && (
+              {finalItems.length > 1 && (
                 <>
                   <button
-                    onClick={() => setProcessIdx((prev) => (prev - 1 + processItems.length) % processItems.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity"
-                    title="Previous Process Slide"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFinalIdx((prev) => (prev - 1 + finalItems.length) % finalItems.length);
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                    title="Previous Final Slide"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setProcessIdx((prev) => (prev + 1) % processItems.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity"
-                    title="Next Process Slide"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFinalIdx((prev) => (prev + 1) % finalItems.length);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                    title="Next Final Slide"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -198,23 +247,23 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               {isEditorActive && (
                 <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q1:opacity-100">
                   <button
-                    onClick={() => handleOpenUpload("processImages")}
-                    className="flex items-center gap-1 text-[var(--accent-web)] hover:underline"
+                    onClick={() => handleOpenUpload("finalImages")}
+                    className="flex items-center gap-1 text-[var(--accent-photo)] hover:underline cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add Image</span>
                   </button>
-                  {processItems.length > 0 && (
+                  {finalItems.length > 0 && (
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleOpenUpload("processImages", processIdx % processItems.length)}
-                        className="text-[var(--muted)] hover:text-white"
+                        onClick={() => handleOpenUpload("finalImages", finalIdx % finalItems.length)}
+                        className="text-[var(--muted)] hover:text-white cursor-pointer"
                       >
                         Replace
                       </button>
                       <button
-                        onClick={() => handleRemoveMediaItem("processImages", processIdx % processItems.length)}
-                        className="text-red-400 hover:text-red-300"
+                        onClick={() => handleRemoveMediaItem("finalImages", finalIdx % finalItems.length)}
+                        className="text-red-400 hover:text-red-300 cursor-pointer"
                       >
                         Delete
                       </button>
@@ -224,33 +273,49 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               )}
             </div>
 
-            {/* QUADRANT 2: FINAL SLIDESHOW */}
+            {/* QUADRANT 2 (RIGHT TOP): PROCESS SLIDESHOW */}
             <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q2 border border-[var(--line)]/50 rounded-sm">
-              <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-photo)] font-bold">
-                <ImageIcon className="w-3 h-3 text-[var(--accent-photo)]" />
-                <span>FINAL ({finalItems.length > 0 ? `${(finalIdx % finalItems.length) + 1}/${finalItems.length}` : "0/0"})</span>
+              <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-web)] font-bold shadow-md">
+                <ImageIcon className="w-3 h-3 text-[var(--accent-web)]" />
+                <span>PROCESS ({processItems.length > 0 ? `${(processIdx % processItems.length) + 1}/${processItems.length}` : "0/0"})</span>
               </div>
 
+              {/* Expand Full Lightbox Button */}
+              <button
+                onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
+                className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q2:opacity-100 transition-all cursor-pointer shadow-md"
+                title="View Full Uncropped Image"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-web)]" />
+              </button>
+
               <img
-                src={currentFinalImg}
-                alt={`${project.title} final`}
-                className="w-full h-full object-cover transition-all duration-300"
+                src={currentProcessImg}
+                alt={`${project.title} process`}
+                onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
+                className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
               />
 
               {/* Prev / Next Arrows */}
-              {finalItems.length > 1 && (
+              {processItems.length > 1 && (
                 <>
                   <button
-                    onClick={() => setFinalIdx((prev) => (prev - 1 + finalItems.length) % finalItems.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity"
-                    title="Previous Final Slide"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProcessIdx((prev) => (prev - 1 + processItems.length) % processItems.length);
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                    title="Previous Process Slide"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setFinalIdx((prev) => (prev + 1) % finalItems.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity"
-                    title="Next Final Slide"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProcessIdx((prev) => (prev + 1) % processItems.length);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                    title="Next Process Slide"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -261,23 +326,23 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               {isEditorActive && (
                 <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q2:opacity-100">
                   <button
-                    onClick={() => handleOpenUpload("finalImages")}
-                    className="flex items-center gap-1 text-[var(--accent-photo)] hover:underline"
+                    onClick={() => handleOpenUpload("processImages")}
+                    className="flex items-center gap-1 text-[var(--accent-web)] hover:underline cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add Image</span>
                   </button>
-                  {finalItems.length > 0 && (
+                  {processItems.length > 0 && (
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleOpenUpload("finalImages", finalIdx % finalItems.length)}
-                        className="text-[var(--muted)] hover:text-white"
+                        onClick={() => handleOpenUpload("processImages", processIdx % processItems.length)}
+                        className="text-[var(--muted)] hover:text-white cursor-pointer"
                       >
                         Replace
                       </button>
                       <button
-                        onClick={() => handleRemoveMediaItem("finalImages", finalIdx % finalItems.length)}
-                        className="text-red-400 hover:text-red-300"
+                        onClick={() => handleRemoveMediaItem("processImages", processIdx % processItems.length)}
+                        className="text-red-400 hover:text-red-300 cursor-pointer"
                       >
                         Delete
                       </button>
@@ -287,11 +352,11 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               )}
             </div>
 
-            {/* QUADRANT 3: OPTIONAL VIDEOS SLIDESHOW */}
+            {/* QUADRANT 3 (LEFT BOTTOM): OPTIONAL PROCESS VIDEOS / DEMOS */}
             <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q3 border border-[var(--line)]/50 rounded-sm flex items-center justify-center">
               <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-video)] font-bold">
                 <VideoIcon className="w-3 h-3 text-[var(--accent-video)]" />
-                <span>OPTIONAL VIDEOS ({videoItems.length > 0 ? `${(videoIdx % videoItems.length) + 1}/${videoItems.length}` : "0"})</span>
+                <span>PROCESS VIDEO ({videoItems.length > 0 ? `${(videoIdx % videoItems.length) + 1}/${videoItems.length}` : "0"})</span>
               </div>
 
               {currentVideo ? (
@@ -303,11 +368,11 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               ) : (
                 <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--muted)] font-mono text-xs">
                   <VideoIcon className="w-8 h-8 mb-2 opacity-40 text-[var(--accent-video)]" />
-                  <p className="mb-2">No Video Files Attached</p>
+                  <p className="mb-2">No Process Video Attached</p>
                   {isEditorActive && (
                     <button
                       onClick={() => handleOpenUpload("videos")}
-                      className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-video)]/50 text-[var(--accent-video)] hover:bg-[var(--accent-video)]/10 text-xs font-semibold"
+                      className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-video)]/50 text-[var(--accent-video)] hover:bg-[var(--accent-video)]/10 text-xs font-semibold cursor-pointer"
                     >
                       + Upload Video
                     </button>
@@ -320,14 +385,14 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 <>
                   <button
                     onClick={() => setVideoIdx((prev) => (prev - 1 + videoItems.length) % videoItems.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q3:opacity-100 transition-opacity"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q3:opacity-100 transition-opacity cursor-pointer shadow-lg"
                     title="Previous Video"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setVideoIdx((prev) => (prev + 1) % videoItems.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q3:opacity-100 transition-opacity"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q3:opacity-100 transition-opacity cursor-pointer shadow-lg"
                     title="Next Video"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -340,7 +405,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q3:opacity-100">
                   <button
                     onClick={() => handleOpenUpload("videos")}
-                    className="flex items-center gap-1 text-[var(--accent-video)] hover:underline"
+                    className="flex items-center gap-1 text-[var(--accent-video)] hover:underline cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add Video</span>
@@ -348,13 +413,13 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleOpenUpload("videos", videoIdx % videoItems.length)}
-                      className="text-[var(--muted)] hover:text-white"
+                      className="text-[var(--muted)] hover:text-white cursor-pointer"
                     >
                       Replace
                     </button>
                     <button
                       onClick={() => handleRemoveMediaItem("videos", videoIdx % videoItems.length)}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-red-400 hover:text-red-300 cursor-pointer"
                     >
                       Delete
                     </button>
@@ -363,11 +428,11 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               )}
             </div>
 
-            {/* QUADRANT 4: OPTIONAL 3D OBJ / GLB FILES */}
+            {/* QUADRANT 4 (RIGHT BOTTOM): OPTIONAL FINAL 3D OBJ / GLB INTERACTIVE */}
             <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q4 border border-[var(--line)]/50 rounded-sm flex items-center justify-center">
               <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-3d)] font-bold">
                 <Box className="w-3 h-3 text-[var(--accent-3d)]" />
-                <span>OPTIONAL 3D OBJ / GLB ({modelItems.length > 0 ? `${(modelIdx % modelItems.length) + 1}/${modelItems.length}` : "0"})</span>
+                <span>FINAL 3D MODEL ({modelItems.length > 0 ? `${(modelIdx % modelItems.length) + 1}/${modelItems.length}` : "0"})</span>
               </div>
 
               {currentModel ? (
@@ -383,7 +448,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                   {isEditorActive && (
                     <button
                       onClick={() => handleOpenUpload("models")}
-                      className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-3d)]/50 text-[var(--accent-3d)] hover:bg-[var(--accent-3d)]/10 text-xs font-semibold"
+                      className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-3d)]/50 text-[var(--accent-3d)] hover:bg-[var(--accent-3d)]/10 text-xs font-semibold cursor-pointer"
                     >
                       + Upload .obj / .glb
                     </button>
@@ -396,14 +461,14 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 <>
                   <button
                     onClick={() => setModelIdx((prev) => (prev - 1 + modelItems.length) % modelItems.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q4:opacity-100 transition-opacity"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q4:opacity-100 transition-opacity cursor-pointer shadow-lg"
                     title="Previous 3D Model"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setModelIdx((prev) => (prev + 1) % modelItems.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full opacity-80 group-hover/q4:opacity-100 transition-opacity"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q4:opacity-100 transition-opacity cursor-pointer shadow-lg"
                     title="Next 3D Model"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -416,7 +481,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q4:opacity-100">
                   <button
                     onClick={() => handleOpenUpload("models")}
-                    className="flex items-center gap-1 text-[var(--accent-3d)] hover:underline"
+                    className="flex items-center gap-1 text-[var(--accent-3d)] hover:underline cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add 3D Model</span>
@@ -424,13 +489,13 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleOpenUpload("models", modelIdx % modelItems.length)}
-                      className="text-[var(--muted)] hover:text-white"
+                      className="text-[var(--muted)] hover:text-white cursor-pointer"
                     >
                       Replace
                     </button>
                     <button
                       onClick={() => handleRemoveMediaItem("models", modelIdx % modelItems.length)}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-red-400 hover:text-red-300 cursor-pointer"
                     >
                       Delete
                     </button>
@@ -502,6 +567,89 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 + Tag
               </button>
             )}
+          </div>
+
+          {/* Side-by-Side Image Browsing Galleries: LEFT (Final) vs RIGHT (Process) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8 pt-6 border-t border-[var(--line)]">
+            {/* LEFT SIDE: FINAL DELIVERABLES */}
+            <div className="bg-[var(--surface-2)] p-4 rounded-lg border border-[var(--line)]">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-[var(--accent-photo)]" />
+                  <h3 className="font-mono text-xs font-bold text-[var(--text)] uppercase tracking-wider">
+                    Left: Final Section ({finalItems.length})
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono text-[var(--muted)]">Scroll / Click to enlarge</span>
+              </div>
+
+              {/* Horizontal Scrollable Thumbnail Ribbon */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                {finalItems.map((imgUrl, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setFinalIdx(idx);
+                      handleOpenLightbox("final", idx);
+                    }}
+                    className={`relative flex-none w-24 aspect-[4/3] rounded border overflow-hidden cursor-pointer group transition-all ${
+                      idx === (finalIdx % finalItems.length)
+                        ? "border-[var(--accent-photo)] ring-2 ring-[var(--accent-photo)]/30 scale-105"
+                        : "border-[var(--line)] opacity-80 hover:opacity-100 hover:border-[var(--muted)]"
+                    }`}
+                    title={`Final Image ${idx + 1} - Click to open full uncropped slideshow`}
+                  >
+                    <img src={imgUrl} alt={`Final ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <ZoomIn className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="absolute bottom-1 left-1 bg-black/80 text-white text-[9px] font-mono px-1 rounded">
+                      #{idx + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT SIDE: PROCESS EXPLORATIONS */}
+            <div className="bg-[var(--surface-2)] p-4 rounded-lg border border-[var(--line)]">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-[var(--accent-web)]" />
+                  <h3 className="font-mono text-xs font-bold text-[var(--text)] uppercase tracking-wider">
+                    Right: Process Section ({processItems.length})
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono text-[var(--muted)]">Scroll / Click to enlarge</span>
+              </div>
+
+              {/* Horizontal Scrollable Thumbnail Ribbon */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                {processItems.map((imgUrl, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setProcessIdx(idx);
+                      handleOpenLightbox("process", idx);
+                    }}
+                    className={`relative flex-none w-24 aspect-[4/3] rounded border overflow-hidden cursor-pointer group transition-all ${
+                      idx === (processIdx % processItems.length)
+                        ? "border-[var(--accent-web)] ring-2 ring-[var(--accent-web)]/30 scale-105"
+                        : "border-[var(--line)] opacity-80 hover:opacity-100 hover:border-[var(--muted)]"
+                    }`}
+                    title={`Process Image ${idx + 1} - Click to open full uncropped slideshow`}
+                  >
+                    <img src={imgUrl} alt={`Process ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <ZoomIn className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="absolute bottom-1 left-1 bg-black/80 text-white text-[9px] font-mono px-1 rounded">
+                      #{idx + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* External Links */}
@@ -603,6 +751,99 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 />
               </label>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          FULL UNCROPPED LIGHTBOX POP-UP SLIDESHOW MODAL
+          ========================================================================= */}
+      {lightboxOpen && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between p-4 bg-black/95 backdrop-blur-xl animate-fade-in">
+          {/* Lightbox Header */}
+          <div className="w-full flex items-center justify-between text-white border-b border-white/10 pb-3 z-10">
+            <div className="flex items-center gap-3">
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-mono font-bold tracking-wider uppercase border ${
+                  lightboxType === "process"
+                    ? "bg-[var(--accent-web)]/20 border-[var(--accent-web)] text-[var(--accent-web)]"
+                    : "bg-[var(--accent-photo)]/20 border-[var(--accent-photo)] text-[var(--accent-photo)]"
+                }`}
+              >
+                {lightboxType === "process" ? "Process Exploration" : "Final Deliverable"}
+              </span>
+              <span className="text-xs font-mono text-zinc-400">
+                {project.title} — Image {lightboxIdx + 1} of{" "}
+                {lightboxType === "process" ? processItems.length : finalItems.length}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-white transition-colors cursor-pointer"
+              title="Close (Esc)"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Main Uncropped Image Area */}
+          <div className="relative flex-1 w-full flex items-center justify-center my-2 overflow-hidden select-none">
+            {/* Previous Image Arrow */}
+            {(lightboxType === "process" ? processItems.length : finalItems.length) > 1 && (
+              <button
+                onClick={() => {
+                  const items = lightboxType === "process" ? processItems : finalItems;
+                  setLightboxIdx((prev) => (prev - 1 + items.length) % items.length);
+                }}
+                className="absolute left-2 sm:left-6 z-20 p-3 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 transition-all cursor-pointer hover:scale-110 shadow-2xl"
+                title="Previous Image (Left Arrow Key)"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Uncropped Image Display (Strict object-contain for 0 cropping) */}
+            <img
+              src={
+                lightboxType === "process"
+                  ? processItems[lightboxIdx % processItems.length]
+                  : finalItems[lightboxIdx % finalItems.length]
+              }
+              alt={`${project.title} uncropped`}
+              className="max-h-[82vh] max-w-[90vw] object-contain rounded shadow-2xl transition-transform duration-200"
+            />
+
+            {/* Next Image Arrow */}
+            {(lightboxType === "process" ? processItems.length : finalItems.length) > 1 && (
+              <button
+                onClick={() => {
+                  const items = lightboxType === "process" ? processItems : finalItems;
+                  setLightboxIdx((prev) => (prev + 1) % items.length);
+                }}
+                className="absolute right-2 sm:right-6 z-20 p-3 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 transition-all cursor-pointer hover:scale-110 shadow-2xl"
+                title="Next Image (Right Arrow Key)"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          {/* Lightbox Bottom Thumbnail Row */}
+          <div className="w-full max-w-3xl flex items-center justify-center gap-2 overflow-x-auto py-2 z-10 scrollbar-thin">
+            {(lightboxType === "process" ? processItems : finalItems).map((imgUrl, idx) => (
+              <button
+                key={idx}
+                onClick={() => setLightboxIdx(idx)}
+                className={`relative flex-none w-16 h-12 rounded border overflow-hidden transition-all cursor-pointer ${
+                  idx === lightboxIdx
+                    ? "border-white ring-2 ring-white/50 scale-110 opacity-100"
+                    : "border-white/20 opacity-50 hover:opacity-100"
+                }`}
+              >
+                <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
           </div>
         </div>
       )}
