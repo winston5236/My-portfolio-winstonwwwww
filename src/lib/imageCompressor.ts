@@ -4,9 +4,9 @@
  */
 export async function compressImageFile(
   file: File,
-  maxWidth = 1200,
-  maxHeight = 1200,
-  quality = 0.8
+  maxWidth = 1000,
+  maxHeight = 1000,
+  quality = 0.75
 ): Promise<string> {
   // Non-image files (videos, 3d models) cannot be canvas compressed
   if (!file.type.startsWith("image/")) {

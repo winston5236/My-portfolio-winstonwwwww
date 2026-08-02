@@ -1,4 +1,4 @@
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, collection, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { Category, Project, SiteSettings, ThemeSettings } from "./types";
 import { DEFAULT_SITE, DEFAULT_THEME, DEFAULT_CATEGORIES, DEFAULT_PROJECTS, savePortfolioState, loadPortfolioState } from "./defaultData";
@@ -11,79 +11,155 @@ export interface PortfolioData {
 }
 
 const PORTFOLIO_DOC = doc(db, "portfolio", "main");
+const PROJECTS_COLL = collection(db, "portfolio_projects");
 
 let isQuotaExceeded = false;
+let knownProjectIds = new Set<string>();
 
 export function getQuotaExceeded(): boolean {
   return isQuotaExceeded;
 }
 
 export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
-  const localData = loadPortfolioState();
+  let currentSite = DEFAULT_SITE;
+  let currentTheme = DEFAULT_THEME;
+  let currentCategories = DEFAULT_CATEGORIES;
+  let currentProjectOrder: string[] = [];
+  let projectsMap = new Map<string, Project>();
+  let isMainLoaded = false;
+  let isProjectsLoaded = false;
 
-  return onSnapshot(
+  function notify() {
+    if (!isMainLoaded || !isProjectsLoaded) return;
+
+    // Order projects according to currentProjectOrder, fallback to remaining map items
+    const orderedProjects: Project[] = [];
+    const seen = new Set<string>();
+
+    for (const id of currentProjectOrder) {
+      if (projectsMap.has(id)) {
+        orderedProjects.push(projectsMap.get(id)!);
+        seen.add(id);
+      }
+    }
+
+    for (const [id, proj] of projectsMap.entries()) {
+      if (!seen.has(id)) {
+        orderedProjects.push(proj);
+      }
+    }
+
+    const finalProjects = orderedProjects.length > 0 ? orderedProjects : DEFAULT_PROJECTS;
+    knownProjectIds = new Set(finalProjects.map((p) => p.id));
+
+    const portfolioData: PortfolioData = {
+      site: currentSite,
+      theme: currentTheme,
+      categories: currentCategories,
+      projects: finalProjects,
+    };
+
+    savePortfolioState(portfolioData);
+    onData(portfolioData);
+  }
+
+  // 1. Listen to main config (site, theme, categories, project list)
+  const unsubMain = onSnapshot(
     PORTFOLIO_DOC,
     async (snapshot) => {
       if (snapshot.exists()) {
         const val = snapshot.data();
-        const firestoreProjects: Project[] = val.projects && Array.isArray(val.projects) && val.projects.length ? val.projects : DEFAULT_PROJECTS;
-        const currentLocal = loadPortfolioState();
+        currentSite = { ...DEFAULT_SITE, ...(val.site || {}) };
+        currentTheme = { ...DEFAULT_THEME, ...(val.theme || {}) };
+        currentCategories =
+          val.categories && Array.isArray(val.categories) && val.categories.length
+            ? val.categories
+            : DEFAULT_CATEGORIES;
 
-        // Merge any locally added projects that aren't in Firestore yet
-        const firestoreIds = new Set(firestoreProjects.map((p) => p.id));
-        const localOnlyProjects = (currentLocal.projects || []).filter((p) => !firestoreIds.has(p.id));
-
-        const mergedProjects = [...firestoreProjects, ...localOnlyProjects];
-
-        const data: PortfolioData = {
-          site: { ...DEFAULT_SITE, ...(val.site || {}) },
-          theme: { ...DEFAULT_THEME, ...(val.theme || {}) },
-          categories: val.categories && Array.isArray(val.categories) && val.categories.length ? val.categories : DEFAULT_CATEGORIES,
-          projects: mergedProjects
-        };
-
-        if (localOnlyProjects.length > 0) {
-          saveToFirestore(data);
-        } else {
-          savePortfolioState(data);
+        if (Array.isArray(val.projectIds)) {
+          currentProjectOrder = val.projectIds;
         }
-        onData(data);
+
+        // Migration check: if main doc has legacy projects array and projectsMap is empty
+        if (Array.isArray(val.projects) && val.projects.length > 0 && projectsMap.size === 0) {
+          for (const proj of val.projects) {
+            projectsMap.set(proj.id, proj);
+            // Save to individual project doc
+            setDoc(doc(db, "portfolio_projects", proj.id), proj, { merge: true }).catch(console.warn);
+          }
+        }
       } else {
-        // First time initialization in Firestore using local data fallback if available
-        const currentLocal = loadPortfolioState();
-        const initial: PortfolioData = {
-          site: currentLocal.site || DEFAULT_SITE,
-          theme: currentLocal.theme || DEFAULT_THEME,
-          categories: currentLocal.categories?.length ? currentLocal.categories : DEFAULT_CATEGORIES,
-          projects: currentLocal.projects?.length ? currentLocal.projects : DEFAULT_PROJECTS
-        };
+        // Seed default config
+        const local = loadPortfolioState();
+        currentSite = local.site || DEFAULT_SITE;
+        currentTheme = local.theme || DEFAULT_THEME;
+        currentCategories = local.categories?.length ? local.categories : DEFAULT_CATEGORIES;
+
         try {
           await setDoc(PORTFOLIO_DOC, {
-            ...initial,
-            updatedAt: new Date().toISOString()
+            site: currentSite,
+            theme: currentTheme,
+            categories: currentCategories,
+            projectIds: (local.projects || DEFAULT_PROJECTS).map((p) => p.id),
+            updatedAt: new Date().toISOString(),
           });
-        } catch (err: any) {
-          if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
-            isQuotaExceeded = true;
-          }
-          console.warn("Could not seed initial portfolio to Firestore (using local storage):", err);
+        } catch (err) {
+          console.warn("Error initializing portfolio main doc:", err);
         }
-        onData(initial);
       }
+      isMainLoaded = true;
+      notify();
     },
-    (error: any) => {
-      console.warn("Firestore snapshot notice (using local storage fallback):", error);
-      if (error?.code === "resource-exhausted" || error?.message?.includes("Quota limit exceeded")) {
-        isQuotaExceeded = true;
-      }
-      // Offline / Quota Fallback: Load local storage state
-      const fallbackLocal = loadPortfolioState();
-      onData(fallbackLocal);
+    (err) => {
+      console.warn("Main doc snapshot notice:", err);
+      isMainLoaded = true;
+      notify();
     }
   );
+
+  // 2. Listen to projects collection for real-time individual project updates
+  const unsubProjects = onSnapshot(
+    PROJECTS_COLL,
+    (snapshot) => {
+      const newMap = new Map<string, Project>();
+      snapshot.forEach((docSnap) => {
+        if (docSnap.exists()) {
+          const proj = docSnap.data() as Project;
+          if (proj && proj.id) {
+            newMap.set(proj.id, proj);
+          }
+        }
+      });
+
+      // If Firestore has project documents, use them
+      if (newMap.size > 0) {
+        projectsMap = newMap;
+      } else {
+        // Fallback to local default projects if collection is empty
+        const local = loadPortfolioState();
+        const fallbackProjs = local.projects?.length ? local.projects : DEFAULT_PROJECTS;
+        for (const p of fallbackProjs) {
+          projectsMap.set(p.id, p);
+        }
+      }
+
+      isProjectsLoaded = true;
+      notify();
+    },
+    (err) => {
+      console.warn("Projects collection snapshot notice:", err);
+      isProjectsLoaded = true;
+      notify();
+    }
+  );
+
+  return () => {
+    unsubMain();
+    unsubProjects();
+  };
 }
 
-// Debounced save to prevent write quota exhaustion
+// Debounced save for Firestore
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let pendingSaveData: PortfolioData | null = null;
 
@@ -92,13 +168,9 @@ export async function saveToFirestore(data: PortfolioData) {
   savePortfolioState(data);
   pendingSaveData = data;
 
-  if (isQuotaExceeded) {
-    return;
-  }
+  if (isQuotaExceeded) return;
 
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
+  if (saveTimeout) clearTimeout(saveTimeout);
 
   saveTimeout = setTimeout(async () => {
     if (!pendingSaveData) return;
@@ -106,17 +178,33 @@ export async function saveToFirestore(data: PortfolioData) {
     pendingSaveData = null;
 
     try {
+      // 1. Save main config (site, theme, categories, projectIds order)
       await setDoc(
         PORTFOLIO_DOC,
         {
           site: toSave.site,
           theme: toSave.theme,
           categories: toSave.categories,
-          projects: toSave.projects,
-          updatedAt: new Date().toISOString()
+          projectIds: toSave.projects.map((p) => p.id),
+          updatedAt: new Date().toISOString(),
         },
         { merge: true }
       );
+
+      // 2. Save each project into its own individual document
+      const currentIds = new Set<string>();
+      for (const proj of toSave.projects) {
+        currentIds.add(proj.id);
+        await setDoc(doc(db, "portfolio_projects", proj.id), proj, { merge: true });
+      }
+
+      // 3. Delete any projects removed locally
+      for (const oldId of knownProjectIds) {
+        if (!currentIds.has(oldId)) {
+          deleteDoc(doc(db, "portfolio_projects", oldId)).catch(console.warn);
+        }
+      }
+      knownProjectIds = currentIds;
     } catch (err: any) {
       if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
         isQuotaExceeded = true;
@@ -125,6 +213,7 @@ export async function saveToFirestore(data: PortfolioData) {
         console.error("Error saving portfolio to Firestore:", err);
       }
     }
-  }, 1000);
+  }, 800);
 }
+
 

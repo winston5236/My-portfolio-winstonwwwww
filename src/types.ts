@@ -8,6 +8,13 @@ export interface Category {
   desc: string;
 }
 
+export interface MediaBox {
+  id: string;
+  type: "process" | "final" | "video" | "model" | "custom_image";
+  title: string;
+  items: string[];
+}
+
 export interface Project {
   id: string;
   title: string;
@@ -21,12 +28,13 @@ export interface Project {
   link?: string;
   embed?: string;
 
-  // 4 Quadrant Media Sections
+  // 4 Quadrant Media Sections & Custom Reel Boxes
   processImages?: string[]; // Process images slideshow
   finalImages?: string[];   // Final images slideshow
   videos?: string[];        // Optional video files/URLs slideshow
   models?: string[];        // Optional 3D OBJ / GLB model URLs slideshow
   cardOrder?: string[];     // Customizable order for media reel cards: e.g. ["process", "final", "video", "model"]
+  customBoxes?: MediaBox[]; // Flexible multi-box media reel items
 
   // Backward compatibility
   model?: string;
