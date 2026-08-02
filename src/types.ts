@@ -17,6 +17,7 @@ export interface Project {
   tags: string[];
   desc: string;
   cover: string;
+  coverFit?: "cover" | "contain"; // "cover" (crop to fill) or "contain" (fit entire image with black space)
   link?: string;
   embed?: string;
 

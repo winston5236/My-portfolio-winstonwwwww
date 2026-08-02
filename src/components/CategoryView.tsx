@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Category, Project } from "../types";
 import { EditableText } from "./EditableText";
-import { ArrowLeft, Plus, Trash2, ExternalLink, Image, Video, Box, Globe } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, ExternalLink, Image as ImageIcon, Video, Box, Globe, Crop, Maximize2, Upload } from "lucide-react";
 
 interface CategoryViewProps {
   category: Category;
@@ -152,7 +152,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                 className="group relative bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] rounded-sm overflow-hidden transition-all hover:-translate-y-1 duration-200"
               >
                 {/* Media Thumbnail */}
-                <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden cursor-pointer">
+                <div className={`relative aspect-[4/3] overflow-hidden cursor-pointer ${project.coverFit === "contain" ? "bg-black" : "bg-[var(--surface-2)]"}`}>
                   {project.type === "video" && project.video ? (
                     <video
                       src={project.video}
@@ -160,14 +160,14 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                       loop
                       autoPlay
                       playsInline
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className={`w-full h-full transition-transform duration-500 group-hover:scale-105 ${project.coverFit === "contain" ? "object-contain" : "object-cover"}`}
                     />
                   ) : (
                     <img
                       src={project.cover}
                       alt={project.title}
                       loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className={`w-full h-full transition-transform duration-500 group-hover:scale-105 ${project.coverFit === "contain" ? "object-contain" : "object-cover"}`}
                     />
                   )}
 
@@ -180,20 +180,59 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                     </span>
                   </div>
 
-                  {/* Delete button in Editor Mode */}
+                  {/* Editor Overlay Controls on Card */}
                   {isEditorActive && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Delete project "${project.title}"?`)) {
-                          onDeleteProject(project.id);
-                        }
-                      }}
-                      className="absolute top-3 left-3 p-1.5 bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-full cursor-pointer transition-colors"
-                      title="Delete Project"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1.5 z-10">
+                      <div className="flex items-center gap-1">
+                        {/* Toggle Crop vs Fit All */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const nextFit = project.coverFit === "contain" ? "cover" : "contain";
+                            onUpdateProject(project.id, "coverFit", nextFit);
+                          }}
+                          className="px-2 py-1 bg-black/90 hover:bg-black border border-white/20 text-white rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer shadow-md transition-colors"
+                          title={project.coverFit === "contain" ? "Currently: Fit All (Contain). Click to Crop to Fill" : "Currently: Crop Fill. Click to Fit All (Contain with black space)"}
+                        >
+                          {project.coverFit === "contain" ? (
+                            <Maximize2 className="w-3 h-3 text-amber-400" />
+                          ) : (
+                            <Crop className="w-3 h-3 text-cyan-400" />
+                          )}
+                          <span>{project.coverFit === "contain" ? "Fit All" : "Crop"}</span>
+                        </button>
+
+                        {/* Change Cover Image URL */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newUrl = prompt("Enter new cover image URL (or paste image link):", project.cover);
+                            if (newUrl && newUrl.trim()) {
+                              onUpdateProject(project.id, "cover", newUrl.trim());
+                            }
+                          }}
+                          className="px-2 py-1 bg-black/90 hover:bg-black border border-white/20 text-white rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer shadow-md transition-colors"
+                          title="Change Thumbnail Image"
+                        >
+                          <ImageIcon className="w-3 h-3 text-[var(--accent-web)]" />
+                          <span>Cover</span>
+                        </button>
+                      </div>
+
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete project "${project.title}"?`)) {
+                            onDeleteProject(project.id);
+                          }
+                        }}
+                        className="p-1.5 bg-red-950/90 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-full cursor-pointer transition-colors shadow-md"
+                        title="Delete Project"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
                 </div>
 

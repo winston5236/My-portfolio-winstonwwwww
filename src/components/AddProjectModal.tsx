@@ -25,6 +25,7 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [desc, setDesc] = useState("");
   const [cover, setCover] = useState("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80");
+  const [coverFit, setCoverFit] = useState<"cover" | "contain">("cover");
   const [link, setLink] = useState("");
   const [model, setModel] = useState("");
   const [video, setVideo] = useState("");
@@ -58,6 +59,7 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
       tags,
       desc: desc.trim() || "A new portfolio project.",
       cover,
+      coverFit,
       link: link.trim() || undefined,
       model: type === "3d" ? model.trim() || "https://modelviewer.dev/shared-assets/models/Astronaut.glb" : undefined,
       video: type === "video" ? video.trim() || undefined : undefined,
@@ -178,6 +180,18 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 <input type="file" onChange={handleFileUpload} accept="image/*" className="hidden" />
               </label>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[var(--muted)] mb-1">Thumbnail Fit Mode</label>
+            <select
+              value={coverFit}
+              onChange={(e) => setCoverFit(e.target.value as "cover" | "contain")}
+              className="w-full bg-[var(--surface-2)] border border-[var(--line)] focus:border-[var(--accent-web)] text-[var(--text)] px-3 py-2 rounded outline-none"
+            >
+              <option value="cover">Crop to Fill Frame (Default)</option>
+              <option value="contain">Fit Whole Image (Uncropped with Black Space)</option>
+            </select>
           </div>
 
           {type === "3d" && (

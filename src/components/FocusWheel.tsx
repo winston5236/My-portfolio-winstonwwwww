@@ -318,18 +318,18 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
       </div>
 
       {/* Home Stage */}
-      <div className="flex flex-col md:flex-row items-center w-full min-h-[70vh] py-6 gap-8 md:gap-0">
+      <div className="flex flex-col sm:flex-row items-center w-full min-h-[65vh] py-4 gap-6 sm:gap-2 md:gap-6">
         
         {/* Left Half: Focus Wheel (Gracefully Curved Top, Fully Colored Wedges) */}
         <div
           ref={wheelCropRef}
-          className="relative flex-none w-full md:w-[50%] h-[55vh] md:h-[78vh] pt-4 md:pt-0 overflow-visible select-none touch-none flex items-center justify-start"
+          className="relative flex-none w-full sm:w-[48%] md:w-[50%] h-[320px] sm:h-[480px] md:h-[75vh] pt-2 sm:pt-0 overflow-hidden sm:overflow-visible select-none touch-none flex items-center justify-start"
         >
           <svg
             ref={svgRef}
             id="wheelSvg"
             viewBox="-20 -20 640 640"
-            className="w-[62vh] h-[62vh] md:w-[86vh] md:h-[86vh] min-w-[360px] min-h-[360px] md:min-w-[580px] md:min-h-[580px] -translate-x-[42%] md:-translate-x-[52%] block"
+            className="w-[380px] h-[380px] sm:w-[460px] sm:h-[460px] md:w-[82vh] md:h-[82vh] min-w-[300px] min-h-[300px] md:min-w-[540px] md:min-h-[540px] max-w-none -translate-x-[45%] sm:-translate-x-[48%] md:-translate-x-[52%] block"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -440,8 +440,8 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
         </div>
 
         {/* Right Half: Focus Detail Panel with Mini Slideshow Preview */}
-        <aside className="flex-1 max-w-lg px-6 md:px-8 text-center md:text-left z-10 flex flex-col justify-center">
-          <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+        <aside className="w-full flex-1 max-w-lg px-4 sm:px-6 md:px-8 text-left z-10 flex flex-col justify-center min-w-0">
+          <div className="flex items-center justify-start gap-3 mb-2">
             <span className="font-mono text-xs text-[var(--muted)]">
               N°{String(focusedIndex + 1).padStart(2, "0")} / {String(N).padStart(2, "0")}
             </span>
@@ -538,7 +538,7 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
                           className="group relative bg-[var(--surface-2)] border border-[var(--line)] hover:border-[var(--muted)] rounded overflow-hidden cursor-pointer transition-all hover:scale-[1.02]"
                           title={`View ${proj.title}`}
                         >
-                          <div className="relative aspect-[4/3] overflow-hidden bg-black/40">
+                          <div className={`relative aspect-[4/3] overflow-hidden ${proj.coverFit === "contain" ? "bg-black" : "bg-black/40"}`}>
                             {proj.type === "video" && proj.video ? (
                               <video
                                 src={proj.video}
@@ -546,13 +546,13 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
                                 loop
                                 autoPlay
                                 playsInline
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                className={`w-full h-full transition-transform duration-500 group-hover:scale-110 ${proj.coverFit === "contain" ? "object-contain" : "object-cover"}`}
                               />
                             ) : (
                               <img
                                 src={proj.cover}
                                 alt={proj.title}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                className={`w-full h-full transition-transform duration-500 group-hover:scale-110 ${proj.coverFit === "contain" ? "object-contain" : "object-cover"}`}
                               />
                             )}
 
@@ -582,7 +582,7 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
             )}
           </div>
 
-          <div className="flex items-center justify-center md:justify-start gap-3 flex-wrap">
+          <div className="flex items-center justify-start gap-3 flex-wrap">
             {/* Primary Action Button to Open Category Page */}
             <button
               onClick={() => onSelectCategory(currentCategory)}
