@@ -1,11 +1,12 @@
 import React from "react";
-import { Palette, Plus, Download, LogOut, Sparkles } from "lucide-react";
+import { Palette, Plus, Download, LogOut, Sparkles, Trash2 } from "lucide-react";
 
 interface EditorToolbarProps {
   isEditorActive: boolean;
   onOpenColorModal: () => void;
   onOpenAddProject: () => void;
   onOpenAddCategory: () => void;
+  onClearAllProjects?: () => void;
   onExportSite: () => void;
   onExitEditor: () => void;
 }
@@ -15,6 +16,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onOpenColorModal,
   onOpenAddProject,
   onOpenAddCategory,
+  onClearAllProjects,
   onExportSite,
   onExitEditor
 }) => {
@@ -54,6 +56,17 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           <Plus className="w-3.5 h-3.5 text-[var(--accent-photo)]" />
           <span>+ Project</span>
         </button>
+
+        {onClearAllProjects && (
+          <button
+            onClick={onClearAllProjects}
+            className="flex items-center gap-1.5 bg-red-950/80 hover:bg-red-900/90 border border-red-500/40 text-red-300 px-3.5 py-1.5 rounded-full font-mono text-xs cursor-pointer transition-all"
+            title="Clear all default projects so you can start fresh with your own"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+            <span>Clear All Projects</span>
+          </button>
+        )}
 
         <button
           onClick={onExportSite}

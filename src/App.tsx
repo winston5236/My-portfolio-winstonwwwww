@@ -137,6 +137,13 @@ export default function App() {
     }
   };
 
+  const handleClearAllProjects = () => {
+    if (window.confirm("Are you sure you want to clear all projects? This will leave your portfolio clean so you can manually add your own projects.")) {
+      setProjects([]);
+      setSelectedProject(null);
+    }
+  };
+
   const handleResetColors = () => {
     setTheme(DEFAULT_THEME);
   };
@@ -220,6 +227,7 @@ export default function App() {
         onClose={() => setSelectedProject(null)}
         isEditorActive={isEditorActive}
         onUpdateProject={handleUpdateProject}
+        onDeleteProject={handleDeleteProject}
         categoryName={activeCategory?.label || categories.find((c) => c.id === (selectedProject ? (projects.find((p) => p.id === selectedProject.id)?.category || selectedProject.category) : undefined))?.label}
         categoryColor={activeCategory?.color || categories.find((c) => c.id === (selectedProject ? (projects.find((p) => p.id === selectedProject.id)?.category || selectedProject.category) : undefined))?.color}
       />
@@ -267,6 +275,7 @@ export default function App() {
         onOpenColorModal={() => setColorModalOpen(true)}
         onOpenAddProject={() => setAddProjectModalOpen(true)}
         onOpenAddCategory={() => setAddCategoryModalOpen(true)}
+        onClearAllProjects={handleClearAllProjects}
         onExportSite={handleExportSite}
         onExitEditor={() => setIsEditorActive(false)}
       />

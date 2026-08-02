@@ -10,6 +10,7 @@ interface ProjectOverlayModalProps {
   onClose: () => void;
   isEditorActive: boolean;
   onUpdateProject: (projId: string, field: keyof Project, value: any) => void;
+  onDeleteProject?: (projId: string) => void;
   categoryName?: string;
   categoryColor?: string;
 }
@@ -21,6 +22,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   onClose,
   isEditorActive,
   onUpdateProject,
+  onDeleteProject,
   categoryName = "General",
   categoryColor = "#8b7bff"
 }) => {
@@ -266,14 +268,31 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
 
       {/* Main Dialog Panel */}
       <div className="relative z-10 w-full max-w-5xl max-h-[92vh] overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-2xl animate-pop">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full border border-[var(--line)] bg-[#121316]/80 text-[var(--text)] hover:bg-[var(--surface-2)] flex items-center justify-center cursor-pointer transition-colors shadow-lg"
-          aria-label="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Top Control Bar: Delete Project & Close */}
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+          {isEditorActive && onDeleteProject && (
+            <button
+              onClick={() => {
+                if (confirm(`Delete project "${project.title}"?`)) {
+                  onDeleteProject(project.id);
+                  onClose();
+                }
+              }}
+              className="px-3 py-1.5 bg-red-950/90 hover:bg-red-900 border border-red-500/50 text-red-300 rounded-full text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-colors shadow-lg"
+              title="Delete this project"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <span>Delete Project</span>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full border border-[var(--line)] bg-[#121316]/80 text-[var(--text)] hover:bg-[var(--surface-2)] flex items-center justify-center cursor-pointer transition-colors shadow-lg"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* =========================================================================
             SLIDABLE MEDIA SHOWCASE REEL (Process, Final, Video, 3D Model)
@@ -1097,23 +1116,37 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                         )}
                       </div>
 
-                      {/* Hover Controls: Set as Thumbnail & Zoom */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-1">
+                      {/* Hover Controls: Set as Thumbnail, Delete & Zoom */}
+                      <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-1">
                         {isEditorActive && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCoverChange(imgUrl);
-                            }}
-                            className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                              isCurrentThumbnail
-                                ? "bg-emerald-600 text-white"
-                                : "bg-white/20 hover:bg-white text-white hover:text-black"
-                            }`}
-                          >
-                            {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
-                            <span>{isCurrentThumbnail ? "Selected" : "Set Cover"}</span>
-                          </button>
+                          <div className="flex items-center gap-1 w-full">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCoverChange(imgUrl);
+                              }}
+                              className={`flex-1 py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                                isCurrentThumbnail
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-white/20 hover:bg-white text-white hover:text-black"
+                              }`}
+                            >
+                              {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
+                              <span>{isCurrentThumbnail ? "Cover" : "Set Cover"}</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Delete this final image?")) {
+                                  handleRemoveMediaItem("finalImages", idx);
+                                }
+                              }}
+                              className="p-1 bg-red-950/90 hover:bg-red-800 border border-red-500/50 text-red-300 rounded cursor-pointer transition-colors"
+                              title="Delete this image"
+                            >
+                              <Trash2 className="w-3 h-3 text-red-400" />
+                            </button>
+                          </div>
                         )}
 
                         <button
@@ -1182,23 +1215,37 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                         )}
                       </div>
 
-                      {/* Hover Controls: Set as Thumbnail & Zoom */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-1">
+                      {/* Hover Controls: Set as Thumbnail, Delete & Zoom */}
+                      <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-1">
                         {isEditorActive && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCoverChange(imgUrl);
-                            }}
-                            className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                              isCurrentThumbnail
-                                ? "bg-emerald-600 text-white"
-                                : "bg-white/20 hover:bg-white text-white hover:text-black"
-                            }`}
-                          >
-                            {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
-                            <span>{isCurrentThumbnail ? "Selected" : "Set Cover"}</span>
-                          </button>
+                          <div className="flex items-center gap-1 w-full">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCoverChange(imgUrl);
+                              }}
+                              className={`flex-1 py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                                isCurrentThumbnail
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-white/20 hover:bg-white text-white hover:text-black"
+                              }`}
+                            >
+                              {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
+                              <span>{isCurrentThumbnail ? "Cover" : "Set Cover"}</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Delete this process image?")) {
+                                  handleRemoveMediaItem("processImages", idx);
+                                }
+                              }}
+                              className="p-1 bg-red-950/90 hover:bg-red-800 border border-red-500/50 text-red-300 rounded cursor-pointer transition-colors"
+                              title="Delete this image"
+                            >
+                              <Trash2 className="w-3 h-3 text-red-400" />
+                            </button>
+                          </div>
                         )}
 
                         <button

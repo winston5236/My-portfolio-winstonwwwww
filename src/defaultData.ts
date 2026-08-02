@@ -211,7 +211,7 @@ export function loadPortfolioState(): {
         site: { ...DEFAULT_SITE, ...parsed.site },
         theme: { ...DEFAULT_THEME, ...parsed.theme },
         categories: parsed.categories && parsed.categories.length ? parsed.categories : DEFAULT_CATEGORIES,
-        projects: cleanedProjects.length ? cleanedProjects : DEFAULT_PROJECTS
+        projects: (parsed.projects !== undefined && Array.isArray(parsed.projects)) ? cleanedProjects : DEFAULT_PROJECTS
       };
     }
   } catch (e) {

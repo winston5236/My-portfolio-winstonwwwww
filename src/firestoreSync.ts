@@ -158,13 +158,20 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       // If Firestore has project documents, use them
       if (newMap.size > 0) {
         projectsMap = newMap;
+        knownProjectIds = new Set(newMap.keys());
+      } else if (isMainLoaded && currentProjectOrder !== null) {
+        // Main document exists and specifies project order (even if empty [])
+        projectsMap = newMap;
+        knownProjectIds = new Set();
       } else {
-        // Fallback to local default projects if collection is empty
+        // Fallback to local saved state if initial setup
         const local = loadPortfolioState();
-        const fallbackProjs = local.projects?.length ? local.projects : DEFAULT_PROJECTS;
+        const fallbackProjs = local.projects !== undefined ? local.projects : DEFAULT_PROJECTS;
+        projectsMap = new Map();
         for (const p of fallbackProjs) {
           projectsMap.set(p.id, p);
         }
+        knownProjectIds = new Set(projectsMap.keys());
       }
 
       isProjectsLoaded = true;
