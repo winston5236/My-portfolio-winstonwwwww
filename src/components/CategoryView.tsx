@@ -136,11 +136,23 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
             return (
               <article
                 key={project.id}
-                onClick={() => onSelectProject(project)}
-                className="group relative bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] rounded-sm overflow-hidden cursor-pointer transition-all hover:-translate-y-1 duration-200"
+                onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (
+                    target.closest('[data-editable="true"]') ||
+                    target.closest("button") ||
+                    target.closest("input") ||
+                    target.closest("textarea") ||
+                    target.isContentEditable
+                  ) {
+                    return;
+                  }
+                  onSelectProject(project);
+                }}
+                className="group relative bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] rounded-sm overflow-hidden transition-all hover:-translate-y-1 duration-200"
               >
                 {/* Media Thumbnail */}
-                <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden">
+                <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden cursor-pointer">
                   {project.type === "video" && project.video ? (
                     <video
                       src={project.video}
@@ -193,6 +205,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                       onSave={(val) => onUpdateProject(project.id, "title", val)}
                       isEditorActive={isEditorActive}
                       tagName="span"
+                      placeholder="Project Title..."
                     />
                   </h3>
 
@@ -202,14 +215,32 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                       onSave={(val) => onUpdateProject(project.id, "year", val)}
                       isEditorActive={isEditorActive}
                       tagName="span"
+                      placeholder="Year..."
                     />
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {project.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded-full border border-[var(--line)] text-[10px]">
-                          #{tag}
-                        </span>
-                      ))}
+                      {isEditorActive ? (
+                        <EditableText
+                          value={project.tags ? project.tags.join(", ") : ""}
+                          onSave={(val) => {
+                            const newTags = val
+                              .split(",")
+                              .map((t) => t.trim().replace(/^#/, ""))
+                              .filter(Boolean);
+                            onUpdateProject(project.id, "tags", newTags);
+                          }}
+                          isEditorActive={isEditorActive}
+                          tagName="span"
+                          placeholder="tags (comma separated)..."
+                          className="text-[10px] text-[var(--accent-web)]"
+                        />
+                      ) : (
+                        project.tags.slice(0, 2).map((tag, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded-full border border-[var(--line)] text-[10px]">
+                            #{tag}
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
