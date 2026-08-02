@@ -26,6 +26,7 @@ export interface Project {
   finalImages?: string[];   // Final images slideshow
   videos?: string[];        // Optional video files/URLs slideshow
   models?: string[];        // Optional 3D OBJ / GLB model URLs slideshow
+  cardOrder?: string[];     // Customizable order for media reel cards: e.g. ["process", "final", "video", "model"]
 
   // Backward compatibility
   model?: string;

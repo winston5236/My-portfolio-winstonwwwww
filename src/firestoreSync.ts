@@ -19,26 +19,40 @@ export function getQuotaExceeded(): boolean {
 }
 
 export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
+  const localData = loadPortfolioState();
+
   return onSnapshot(
     PORTFOLIO_DOC,
     async (snapshot) => {
       if (snapshot.exists()) {
         const val = snapshot.data();
+        const firestoreProjects = val.projects && Array.isArray(val.projects) && val.projects.length ? val.projects : DEFAULT_PROJECTS;
+        const currentLocal = loadPortfolioState();
+
+        // If local storage has more projects than Firestore (e.g. freshly added locally before sync), prioritize local and write to Firestore
+        const useLocalProjects = currentLocal.projects.length > firestoreProjects.length;
+
         const data: PortfolioData = {
           site: { ...DEFAULT_SITE, ...(val.site || {}) },
           theme: { ...DEFAULT_THEME, ...(val.theme || {}) },
           categories: val.categories && Array.isArray(val.categories) && val.categories.length ? val.categories : DEFAULT_CATEGORIES,
-          projects: val.projects && Array.isArray(val.projects) && val.projects.length ? val.projects : DEFAULT_PROJECTS
+          projects: useLocalProjects ? currentLocal.projects : firestoreProjects
         };
-        savePortfolioState(data); // Mirror to localStorage as offline fallback
+
+        if (useLocalProjects) {
+          saveToFirestore(data);
+        } else {
+          savePortfolioState(data);
+        }
         onData(data);
       } else {
-        // First time initialization in Firestore
+        // First time initialization in Firestore using local data fallback if available
+        const currentLocal = loadPortfolioState();
         const initial: PortfolioData = {
-          site: DEFAULT_SITE,
-          theme: DEFAULT_THEME,
-          categories: DEFAULT_CATEGORIES,
-          projects: DEFAULT_PROJECTS
+          site: currentLocal.site || DEFAULT_SITE,
+          theme: currentLocal.theme || DEFAULT_THEME,
+          categories: currentLocal.categories?.length ? currentLocal.categories : DEFAULT_CATEGORIES,
+          projects: currentLocal.projects?.length ? currentLocal.projects : DEFAULT_PROJECTS
         };
         try {
           await setDoc(PORTFOLIO_DOC, {
@@ -59,9 +73,9 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       if (error?.code === "resource-exhausted" || error?.message?.includes("Quota limit exceeded")) {
         isQuotaExceeded = true;
       }
-      // Offline / Quota Fallback: Load local storage state so the app never shows a blank screen
-      const localData = loadPortfolioState();
-      onData(localData);
+      // Offline / Quota Fallback: Load local storage state
+      const fallbackLocal = loadPortfolioState();
+      onData(fallbackLocal);
     }
   );
 }

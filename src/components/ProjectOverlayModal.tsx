@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Project } from "../types";
 import { ThreeModelViewer } from "./ThreeModelViewer";
 import { EditableText } from "./EditableText";
-import { X, ExternalLink, Plus, Trash2, Upload, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Maximize2, ZoomIn, Crop, Check, Sparkles, Globe } from "lucide-react";
+import { X, ExternalLink, Plus, Trash2, Upload, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Maximize2, ZoomIn, Crop, Check, Sparkles, Globe, GripVertical, ArrowLeft, ArrowRight } from "lucide-react";
 
 interface ProjectOverlayModalProps {
   project: Project | null;
@@ -23,20 +23,68 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   categoryName = "General",
   categoryColor = "#8b7bff"
 }) => {
+  const carouselRef = useRef<HTMLDivElement>(null);
+
   // Quadrant active slide indices
   const [processIdx, setProcessIdx] = useState<number>(0);
   const [finalIdx, setFinalIdx] = useState<number>(0);
   const [videoIdx, setVideoIdx] = useState<number>(0);
   const [modelIdx, setModelIdx] = useState<number>(0);
 
+  // Card order state for the 4 media reel cards
+  const [cardOrder, setCardOrder] = useState<string[]>(
+    project?.cardOrder && project.cardOrder.length === 4
+      ? project.cardOrder
+      : ["process", "final", "video", "model"]
+  );
+
+  useEffect(() => {
+    if (project?.cardOrder && project.cardOrder.length === 4) {
+      setCardOrder(project.cardOrder);
+    } else {
+      setCardOrder(["process", "final", "video", "model"]);
+    }
+  }, [project?.id, project?.cardOrder]);
+
+  const [draggedCard, setDraggedCard] = useState<string | null>(null);
+
+  const handleMoveCard = (cardKey: string, direction: "left" | "right") => {
+    const idx = cardOrder.indexOf(cardKey);
+    if (idx === -1) return;
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= cardOrder.length) return;
+
+    const newOrder = [...cardOrder];
+    const [moved] = newOrder.splice(idx, 1);
+    newOrder.splice(newIdx, 0, moved);
+
+    setCardOrder(newOrder);
+    if (project) {
+      onUpdateProject(project.id, "cardOrder" as any, newOrder);
+    }
+  };
+
+  const handleDropCard = (targetCardKey: string) => {
+    if (!draggedCard || draggedCard === targetCardKey) return;
+    const fromIdx = cardOrder.indexOf(draggedCard);
+    const toIdx = cardOrder.indexOf(targetCardKey);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const newOrder = [...cardOrder];
+    const [moved] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, moved);
+
+    setCardOrder(newOrder);
+    setDraggedCard(null);
+    if (project) {
+      onUpdateProject(project.id, "cardOrder" as any, newOrder);
+    }
+  };
+
   // Lightbox Modal state for full uncropped pop-up slideshow
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
   const [lightboxType, setLightboxType] = useState<"process" | "final">("process");
   const [lightboxIdx, setLightboxIdx] = useState<number>(0);
-
-  // Tab selections for Left (Process) and Right (Final) media cards
-  const [leftTab, setLeftTab] = useState<"images" | "video">("images");
-  const [rightTab, setRightTab] = useState<"images" | "model">("images");
 
   // Upload/Edit media modal state
   const [uploadModalOpen, setUploadModalOpen] = useState<boolean>(false);
@@ -222,369 +270,581 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
         </button>
 
         {/* =========================================================================
-            COMPACT SINGLE-ROW MEDIA SHOWCASE (LEFT: Process / Video, RIGHT: Final / 3D)
+            SLIDABLE 4-CARD MEDIA SHOWCASE REEL (Process, Final, Video, 3D Model)
             ========================================================================= */}
-        <div className="w-full bg-[#0d0e11] border-b border-[var(--line)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 p-1 bg-black/40">
-
-            {/* LEFT PANEL: PROCESS SHOWCASE (IMAGES OR VIDEO SLIDESHOW) */}
-            <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q1 border border-[var(--line)]/50 rounded-sm flex items-center justify-center">
-              {/* Tab Selector Header (Left Top) */}
-              <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 bg-[#121316]/90 backdrop-blur-md p-1 rounded-full border border-[var(--line)] shadow-md">
-                <button
-                  onClick={() => setLeftTab("images")}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                    leftTab === "images"
-                      ? "bg-[var(--accent-web)] text-black shadow-sm"
-                      : "text-[var(--muted)] hover:text-white"
-                  }`}
-                >
-                  <ImageIcon className="w-3 h-3" />
-                  <span>Process ({processItems.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setLeftTab("video")}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                    leftTab === "video"
-                      ? "bg-[var(--accent-video)] text-black shadow-sm"
-                      : "text-[var(--muted)] hover:text-white"
-                  }`}
-                >
-                  <VideoIcon className="w-3 h-3" />
-                  <span>Video ({videoItems.length})</span>
-                </button>
-              </div>
-
-              {/* Tab Content: Process Images */}
-              {leftTab === "images" && (
-                <>
-                  {/* Expand Full Lightbox Button */}
-                  <button
-                    onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
-                    className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q1:opacity-100 transition-all cursor-pointer shadow-md"
-                    title="View Full Uncropped Image"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-web)]" />
-                  </button>
-
-                  <img
-                    src={currentProcessImg}
-                    alt={`${project.title} process`}
-                    onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
-                    className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
-                  />
-
-                  {/* Prev / Next Arrows */}
-                  {processItems.length > 1 && (
-                    <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProcessIdx((prev) => (prev - 1 + processItems.length) % processItems.length);
-                        }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Previous Process Slide"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProcessIdx((prev) => (prev + 1) % processItems.length);
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Next Process Slide"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Editor Overlay Controls */}
-                  {isEditorActive && (
-                    <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q1:opacity-100">
-                      <button
-                        onClick={() => handleOpenUpload("processImages")}
-                        className="flex items-center gap-1 text-[var(--accent-web)] hover:underline cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Add Image</span>
-                      </button>
-                      {processItems.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleOpenUpload("processImages", processIdx % processItems.length)}
-                            className="text-[var(--muted)] hover:text-white cursor-pointer"
-                          >
-                            Replace
-                          </button>
-                          <button
-                            onClick={() => handleRemoveMediaItem("processImages", processIdx % processItems.length)}
-                            className="text-red-400 hover:text-red-300 cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
+        <div className="w-full bg-[#0d0e11] border-b border-[var(--line)] py-3 px-3">
+          {/* Header Controls & Scroll Hints */}
+          <div className="flex items-center justify-between px-1 mb-2.5 font-mono text-[11px] text-[var(--muted)]">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[var(--accent-web)] animate-pulse" />
+              <span className="uppercase tracking-wider font-semibold text-[#ece9e3]">Media Reel (4 Cards)</span>
+              {isEditorActive && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-amber-400 text-[10px] bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30 ml-2">
+                  <GripVertical className="w-3 h-3" /> Drag cards or use ← → to reorder
+                </span>
               )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-[10px] opacity-75">← Slide or use buttons to view media →</span>
+              <button
+                onClick={() => {
+                  if (carouselRef.current) carouselRef.current.scrollBy({ left: -320, behavior: "smooth" });
+                }}
+                className="p-1 rounded bg-[#1a1c20] hover:bg-[#282b32] text-white border border-[var(--line)] cursor-pointer transition-colors"
+                title="Scroll Left"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  if (carouselRef.current) carouselRef.current.scrollBy({ left: 320, behavior: "smooth" });
+                }}
+                className="p-1 rounded bg-[#1a1c20] hover:bg-[#282b32] text-white border border-[var(--line)] cursor-pointer transition-colors"
+                title="Scroll Right"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
 
-              {/* Tab Content: Process Video */}
-              {leftTab === "video" && (
-                <>
-                  {currentVideo ? (
-                    <video
-                      src={currentVideo}
-                      controls
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--muted)] font-mono text-xs">
-                      <VideoIcon className="w-8 h-8 mb-2 opacity-40 text-[var(--accent-video)]" />
-                      <p className="mb-2">No Process Video Attached</p>
+          {/* Horizontal Carousel Container */}
+          <div
+            ref={carouselRef}
+            className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 pt-1 px-1 scrollbar-thin scrollbar-thumb-[var(--line)] scrollbar-track-transparent"
+          >
+            {cardOrder.map((cardKey, cardIdx) => {
+              if (cardKey === "process") {
+                return (
+                  <div
+                    key="process"
+                    draggable={isEditorActive}
+                    onDragStart={(e) => {
+                      if (isEditorActive) {
+                        e.dataTransfer.setData("text/plain", "process");
+                        setDraggedCard("process");
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (isEditorActive) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (isEditorActive) {
+                        e.preventDefault();
+                        handleDropCard("process");
+                      }
+                    }}
+                    onDragEnd={() => setDraggedCard(null)}
+                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q1 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                      draggedCard === "process" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
+                    } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
+                  >
+                    <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-web)] font-bold shadow-md">
                       {isEditorActive && (
+                        <span className="flex items-center gap-1 pr-1 border-r border-[var(--line)] text-amber-400" title="Drag to reorder position">
+                          <GripVertical className="w-3 h-3 cursor-grab" />
+                          <span className="text-[9px]">#{cardIdx + 1}</span>
+                        </span>
+                      )}
+                      <ImageIcon className="w-3 h-3 text-[var(--accent-web)]" />
+                      <span>PROCESS ({processItems.length > 0 ? `${(processIdx % processItems.length) + 1}/${processItems.length}` : "0/0"})</span>
+                    </div>
+
+                    {/* Reorder Shift Arrow Buttons in Editor Mode */}
+                    {isEditorActive && (
+                      <div className="absolute top-2.5 right-11 z-20 flex items-center gap-1 bg-black/80 backdrop-blur-md px-1.5 py-1 rounded-full border border-[var(--line)]">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("process", "left"); }}
+                          disabled={cardIdx === 0}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card left"
+                        >
+                          <ArrowLeft className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("process", "right"); }}
+                          disabled={cardIdx === cardOrder.length - 1}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card right"
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Expand Full Lightbox Button */}
+                    <button
+                      onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
+                      className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q1:opacity-100 transition-all cursor-pointer shadow-md"
+                      title="View Full Uncropped Image"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-web)]" />
+                    </button>
+
+                    <img
+                      src={currentProcessImg}
+                      alt={`${project.title} process`}
+                      onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
+                      className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
+                    />
+
+                    {/* Prev / Next Arrows */}
+                    {processItems.length > 1 && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProcessIdx((prev) => (prev - 1 + processItems.length) % processItems.length);
+                          }}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Previous Process Slide"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProcessIdx((prev) => (prev + 1) % processItems.length);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Next Process Slide"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Editor Overlay Controls */}
+                    {isEditorActive && (
+                      <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q1:opacity-100">
+                        <button
+                          onClick={() => handleOpenUpload("processImages")}
+                          className="flex items-center gap-1 text-[var(--accent-web)] hover:underline cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Image</span>
+                        </button>
+                        {processItems.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenUpload("processImages", processIdx % processItems.length)}
+                              className="text-[var(--muted)] hover:text-white cursor-pointer"
+                            >
+                              Replace
+                            </button>
+                            <button
+                              onClick={() => handleRemoveMediaItem("processImages", processIdx % processItems.length)}
+                              className="text-red-400 hover:text-red-300 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (cardKey === "final") {
+                return (
+                  <div
+                    key="final"
+                    draggable={isEditorActive}
+                    onDragStart={(e) => {
+                      if (isEditorActive) {
+                        e.dataTransfer.setData("text/plain", "final");
+                        setDraggedCard("final");
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (isEditorActive) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (isEditorActive) {
+                        e.preventDefault();
+                        handleDropCard("final");
+                      }
+                    }}
+                    onDragEnd={() => setDraggedCard(null)}
+                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q2 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                      draggedCard === "final" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
+                    } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
+                  >
+                    <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-photo)] font-bold shadow-md">
+                      {isEditorActive && (
+                        <span className="flex items-center gap-1 pr-1 border-r border-[var(--line)] text-amber-400" title="Drag to reorder position">
+                          <GripVertical className="w-3 h-3 cursor-grab" />
+                          <span className="text-[9px]">#{cardIdx + 1}</span>
+                        </span>
+                      )}
+                      <ImageIcon className="w-3 h-3 text-[var(--accent-photo)]" />
+                      <span>FINAL ({finalItems.length > 0 ? `${(finalIdx % finalItems.length) + 1}/${finalItems.length}` : "0/0"})</span>
+                    </div>
+
+                    {/* Reorder Shift Arrow Buttons in Editor Mode */}
+                    {isEditorActive && (
+                      <div className="absolute top-2.5 right-11 z-20 flex items-center gap-1 bg-black/80 backdrop-blur-md px-1.5 py-1 rounded-full border border-[var(--line)]">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("final", "left"); }}
+                          disabled={cardIdx === 0}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card left"
+                        >
+                          <ArrowLeft className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("final", "right"); }}
+                          disabled={cardIdx === cardOrder.length - 1}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card right"
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Expand Full Lightbox Button */}
+                    <button
+                      onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
+                      className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q2:opacity-100 transition-all cursor-pointer shadow-md"
+                      title="View Full Uncropped Image"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-photo)]" />
+                    </button>
+
+                    <img
+                      src={currentFinalImg}
+                      alt={`${project.title} final`}
+                      onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
+                      className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
+                    />
+
+                    {/* Prev / Next Arrows */}
+                    {finalItems.length > 1 && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFinalIdx((prev) => (prev - 1 + finalItems.length) % finalItems.length);
+                          }}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Previous Final Slide"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFinalIdx((prev) => (prev + 1) % finalItems.length);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Next Final Slide"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Editor Overlay Controls */}
+                    {isEditorActive && (
+                      <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q2:opacity-100">
+                        <button
+                          onClick={() => handleOpenUpload("finalImages")}
+                          className="flex items-center gap-1 text-[var(--accent-photo)] hover:underline cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Image</span>
+                        </button>
+                        {finalItems.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenUpload("finalImages", finalIdx % finalItems.length)}
+                              className="text-[var(--muted)] hover:text-white cursor-pointer"
+                            >
+                              Replace
+                            </button>
+                            <button
+                              onClick={() => handleRemoveMediaItem("finalImages", finalIdx % finalItems.length)}
+                              className="text-red-400 hover:text-red-300 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (cardKey === "video") {
+                return (
+                  <div
+                    key="video"
+                    draggable={isEditorActive}
+                    onDragStart={(e) => {
+                      if (isEditorActive) {
+                        e.dataTransfer.setData("text/plain", "video");
+                        setDraggedCard("video");
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (isEditorActive) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (isEditorActive) {
+                        e.preventDefault();
+                        handleDropCard("video");
+                      }
+                    }}
+                    onDragEnd={() => setDraggedCard(null)}
+                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q3 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                      draggedCard === "video" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
+                    } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
+                  >
+                    <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-video)] font-bold shadow-md">
+                      {isEditorActive && (
+                        <span className="flex items-center gap-1 pr-1 border-r border-[var(--line)] text-amber-400" title="Drag to reorder position">
+                          <GripVertical className="w-3 h-3 cursor-grab" />
+                          <span className="text-[9px]">#{cardIdx + 1}</span>
+                        </span>
+                      )}
+                      <VideoIcon className="w-3 h-3 text-[var(--accent-video)]" />
+                      <span>PROCESS VIDEO ({videoItems.length > 0 ? `${(videoIdx % videoItems.length) + 1}/${videoItems.length}` : "0"})</span>
+                    </div>
+
+                    {/* Reorder Shift Arrow Buttons in Editor Mode */}
+                    {isEditorActive && (
+                      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 bg-black/80 backdrop-blur-md px-1.5 py-1 rounded-full border border-[var(--line)]">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("video", "left"); }}
+                          disabled={cardIdx === 0}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card left"
+                        >
+                          <ArrowLeft className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("video", "right"); }}
+                          disabled={cardIdx === cardOrder.length - 1}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card right"
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {currentVideo ? (
+                      <video
+                        src={currentVideo}
+                        controls
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--muted)] font-mono text-xs">
+                        <VideoIcon className="w-8 h-8 mb-2 opacity-40 text-[var(--accent-video)]" />
+                        <p className="mb-2">No Process Video Attached</p>
+                        {isEditorActive && (
+                          <button
+                            onClick={() => handleOpenUpload("videos")}
+                            className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-video)]/50 text-[var(--accent-video)] hover:bg-[var(--accent-video)]/10 text-xs font-semibold cursor-pointer transition-all"
+                          >
+                            + Upload Video
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Prev / Next Arrows for Video Slideshow */}
+                    {videoItems.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setVideoIdx((prev) => (prev - 1 + videoItems.length) % videoItems.length)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q3:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Previous Video"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setVideoIdx((prev) => (prev + 1) % videoItems.length)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q3:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Next Video"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Editor Overlay Controls */}
+                    {isEditorActive && currentVideo && (
+                      <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q3:opacity-100">
                         <button
                           onClick={() => handleOpenUpload("videos")}
-                          className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-video)]/50 text-[var(--accent-video)] hover:bg-[var(--accent-video)]/10 text-xs font-semibold cursor-pointer"
+                          className="flex items-center gap-1 text-[var(--accent-video)] hover:underline cursor-pointer"
                         >
-                          + Upload Video
+                          <Plus className="w-3 h-3" />
+                          <span>Add Video</span>
                         </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Prev / Next Arrows for Video Slideshow */}
-                  {videoItems.length > 1 && (
-                    <>
-                      <button
-                        onClick={() => setVideoIdx((prev) => (prev - 1 + videoItems.length) % videoItems.length)}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Previous Video"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setVideoIdx((prev) => (prev + 1) % videoItems.length)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q1:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Next Video"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Editor Overlay Controls */}
-                  {isEditorActive && currentVideo && (
-                    <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q1:opacity-100">
-                      <button
-                        onClick={() => handleOpenUpload("videos")}
-                        className="flex items-center gap-1 text-[var(--accent-video)] hover:underline cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Add Video</span>
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenUpload("videos", videoIdx % videoItems.length)}
-                          className="text-[var(--muted)] hover:text-white cursor-pointer"
-                        >
-                          Replace
-                        </button>
-                        <button
-                          onClick={() => handleRemoveMediaItem("videos", videoIdx % videoItems.length)}
-                          className="text-red-400 hover:text-red-300 cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* RIGHT PANEL: FINAL SHOWCASE (IMAGES OR 3D MODEL SLIDESHOW) */}
-            <div className="relative aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q2 border border-[var(--line)]/50 rounded-sm flex items-center justify-center">
-              {/* Tab Selector Header (Right Top) */}
-              <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 bg-[#121316]/90 backdrop-blur-md p-1 rounded-full border border-[var(--line)] shadow-md">
-                <button
-                  onClick={() => setRightTab("images")}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                    rightTab === "images"
-                      ? "bg-[var(--accent-photo)] text-black shadow-sm"
-                      : "text-[var(--muted)] hover:text-white"
-                  }`}
-                >
-                  <ImageIcon className="w-3 h-3" />
-                  <span>Final ({finalItems.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setRightTab("model")}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                    rightTab === "model"
-                      ? "bg-[var(--accent-3d)] text-black shadow-sm"
-                      : "text-[var(--muted)] hover:text-white"
-                  }`}
-                >
-                  <Box className="w-3 h-3" />
-                  <span>3D Model ({modelItems.length})</span>
-                </button>
-              </div>
-
-              {/* Tab Content: Final Images */}
-              {rightTab === "images" && (
-                <>
-                  {/* Expand Full Lightbox Button */}
-                  <button
-                    onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
-                    className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q2:opacity-100 transition-all cursor-pointer shadow-md"
-                    title="View Full Uncropped Image"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-photo)]" />
-                  </button>
-
-                  <img
-                    src={currentFinalImg}
-                    alt={`${project.title} final`}
-                    onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
-                    className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
-                  />
-
-                  {/* Prev / Next Arrows */}
-                  {finalItems.length > 1 && (
-                    <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFinalIdx((prev) => (prev - 1 + finalItems.length) % finalItems.length);
-                        }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Previous Final Slide"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFinalIdx((prev) => (prev + 1) % finalItems.length);
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Next Final Slide"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Editor Overlay Controls */}
-                  {isEditorActive && (
-                    <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q2:opacity-100">
-                      <button
-                        onClick={() => handleOpenUpload("finalImages")}
-                        className="flex items-center gap-1 text-[var(--accent-photo)] hover:underline cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Add Image</span>
-                      </button>
-                      {finalItems.length > 0 && (
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleOpenUpload("finalImages", finalIdx % finalItems.length)}
+                            onClick={() => handleOpenUpload("videos", videoIdx % videoItems.length)}
                             className="text-[var(--muted)] hover:text-white cursor-pointer"
                           >
                             Replace
                           </button>
                           <button
-                            onClick={() => handleRemoveMediaItem("finalImages", finalIdx % finalItems.length)}
+                            onClick={() => handleRemoveMediaItem("videos", videoIdx % videoItems.length)}
                             className="text-red-400 hover:text-red-300 cursor-pointer"
                           >
                             Delete
                           </button>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
-              {/* Tab Content: 3D Model */}
-              {rightTab === "model" && (
-                <>
-                  {currentModel ? (
-                    <ThreeModelViewer
-                      modelUrl={currentModel}
-                      altText={project.title}
-                      accentColor={categoryColor}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--muted)] font-mono text-xs">
-                      <Box className="w-8 h-8 mb-2 opacity-40 text-[var(--accent-3d)]" />
-                      <p className="mb-2">No 3D Model Attached</p>
+              if (cardKey === "model") {
+                return (
+                  <div
+                    key="model"
+                    draggable={isEditorActive}
+                    onDragStart={(e) => {
+                      if (isEditorActive) {
+                        e.dataTransfer.setData("text/plain", "model");
+                        setDraggedCard("model");
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (isEditorActive) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (isEditorActive) {
+                        e.preventDefault();
+                        handleDropCard("model");
+                      }
+                    }}
+                    onDragEnd={() => setDraggedCard(null)}
+                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q4 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                      draggedCard === "model" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
+                    } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
+                  >
+                    <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 bg-[#121316]/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-[var(--line)] text-[10px] font-mono tracking-wider text-[var(--accent-3d)] font-bold shadow-md">
                       {isEditorActive && (
-                        <button
-                          onClick={() => handleOpenUpload("models")}
-                          className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-3d)]/50 text-[var(--accent-3d)] hover:bg-[var(--accent-3d)]/10 text-xs font-semibold cursor-pointer"
-                        >
-                          + Upload .obj / .glb
-                        </button>
+                        <span className="flex items-center gap-1 pr-1 border-r border-[var(--line)] text-amber-400" title="Drag to reorder position">
+                          <GripVertical className="w-3 h-3 cursor-grab" />
+                          <span className="text-[9px]">#{cardIdx + 1}</span>
+                        </span>
                       )}
+                      <Box className="w-3 h-3 text-[var(--accent-3d)]" />
+                      <span>FINAL 3D MODEL ({modelItems.length > 0 ? `${(modelIdx % modelItems.length) + 1}/${modelItems.length}` : "0"})</span>
                     </div>
-                  )}
 
-                  {/* Prev / Next Arrows for 3D Models */}
-                  {modelItems.length > 1 && (
-                    <>
-                      <button
-                        onClick={() => setModelIdx((prev) => (prev - 1 + modelItems.length) % modelItems.length)}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Previous 3D Model"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setModelIdx((prev) => (prev + 1) % modelItems.length)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q2:opacity-100 transition-opacity cursor-pointer shadow-lg"
-                        title="Next 3D Model"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Editor Overlay Controls */}
-                  {isEditorActive && currentModel && (
-                    <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q2:opacity-100">
-                      <button
-                        onClick={() => handleOpenUpload("models")}
-                        className="flex items-center gap-1 text-[var(--accent-3d)] hover:underline cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Add 3D Model</span>
-                      </button>
-                      <div className="flex items-center gap-2">
+                    {/* Reorder Shift Arrow Buttons in Editor Mode */}
+                    {isEditorActive && (
+                      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 bg-black/80 backdrop-blur-md px-1.5 py-1 rounded-full border border-[var(--line)]">
                         <button
-                          onClick={() => handleOpenUpload("models", modelIdx % modelItems.length)}
-                          className="text-[var(--muted)] hover:text-white cursor-pointer"
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("model", "left"); }}
+                          disabled={cardIdx === 0}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card left"
                         >
-                          Replace
+                          <ArrowLeft className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => handleRemoveMediaItem("models", modelIdx % modelItems.length)}
-                          className="text-red-400 hover:text-red-300 cursor-pointer"
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleMoveCard("model", "right"); }}
+                          disabled={cardIdx === cardOrder.length - 1}
+                          className="p-0.5 text-gray-300 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-gray-300 cursor-pointer"
+                          title="Move card right"
                         >
-                          Delete
+                          <ArrowRight className="w-3 h-3" />
                         </button>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                    )}
 
+                    {currentModel ? (
+                      <ThreeModelViewer
+                        modelUrl={currentModel}
+                        altText={project.title}
+                        accentColor={categoryColor}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--muted)] font-mono text-xs">
+                        <Box className="w-8 h-8 mb-2 opacity-40 text-[var(--accent-3d)]" />
+                        <p className="mb-2">No 3D Model Attached</p>
+                        {isEditorActive && (
+                          <button
+                            onClick={() => handleOpenUpload("models")}
+                            className="px-3 py-1.5 rounded-full bg-[var(--surface)] border border-[var(--accent-3d)]/50 text-[var(--accent-3d)] hover:bg-[var(--accent-3d)]/10 text-xs font-semibold cursor-pointer transition-all"
+                          >
+                            + Upload .obj / .glb
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Prev / Next Arrows for 3D Models */}
+                    {modelItems.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setModelIdx((prev) => (prev - 1 + modelItems.length) % modelItems.length)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q4:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Previous 3D Model"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setModelIdx((prev) => (prev + 1) % modelItems.length)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 bg-black/80 hover:bg-black text-white rounded-full opacity-80 group-hover/q4:opacity-100 transition-opacity cursor-pointer shadow-lg"
+                          title="Next 3D Model"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Editor Overlay Controls */}
+                    {isEditorActive && currentModel && (
+                      <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between bg-black/85 backdrop-blur-md p-1.5 rounded text-[11px] font-mono border border-[var(--line)] opacity-90 group-hover/q4:opacity-100">
+                        <button
+                          onClick={() => handleOpenUpload("models")}
+                          className="flex items-center gap-1 text-[var(--accent-3d)] hover:underline cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add 3D Model</span>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleOpenUpload("models", modelIdx % modelItems.length)}
+                            className="text-[var(--muted)] hover:text-white cursor-pointer"
+                          >
+                            Replace
+                          </button>
+                          <button
+                            onClick={() => handleRemoveMediaItem("models", modelIdx % modelItems.length)}
+                            className="text-red-400 hover:text-red-300 cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return null;
+            })}
           </div>
         </div>
 
