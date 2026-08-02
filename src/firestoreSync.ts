@@ -16,12 +16,17 @@ const PROJECTS_COLL = collection(db, "portfolio_projects");
 let isQuotaExceeded = false;
 let knownProjectIds = new Set<string>();
 
-let lastLocalWriteTime = 0;
+let lastRemoteData: PortfolioData | null = null;
 let pendingSaveData: PortfolioData | null = null;
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function getQuotaExceeded(): boolean {
   return isQuotaExceeded;
+}
+
+function isDataEqual(a: PortfolioData, b: PortfolioData | null): boolean {
+  if (!b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 enum OperationType {
@@ -60,9 +65,9 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   function notify() {
     if (!isMainLoaded || !isProjectsLoaded) return;
 
-    // Do NOT trigger notify while a local save is pending or within 1.5s of a local write
-    // to prevent race conditions where stale snapshot data overwrites local updates!
-    if (pendingSaveData !== null || Date.now() - lastLocalWriteTime < 1500) {
+    // Do NOT trigger notify while a local save is pending write
+    // so we don't overwrite user's unsaved local changes with an older snapshot
+    if (pendingSaveData !== null) {
       return;
     }
 
@@ -76,7 +81,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
         }
       }
     } else {
-      // If project order was never initialized, use all map values
+      // If project order was never initialized, use map values
       for (const proj of projectsMap.values()) {
         orderedProjects.push(proj);
       }
@@ -102,6 +107,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       projects: finalProjects,
     };
 
+    lastRemoteData = portfolioData;
     savePortfolioState(portfolioData);
     onData(portfolioData);
   }
@@ -197,9 +203,14 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
 }
 
 export async function saveToFirestore(data: PortfolioData) {
-  lastLocalWriteTime = Date.now();
   // Save locally immediately for zero latency & offline persistence
   savePortfolioState(data);
+
+  // Skip writing to Firestore if the current data matches what was just synced from Firestore
+  if (isDataEqual(data, lastRemoteData)) {
+    return;
+  }
+
   pendingSaveData = data;
 
   if (isQuotaExceeded) return;
@@ -231,13 +242,14 @@ export async function saveToFirestore(data: PortfolioData) {
         await setDoc(doc(db, "portfolio_projects", proj.id), proj);
       }
 
-      // 3. Delete any projects removed locally
+      // 3. Delete any projects removed locally from Firestore
       for (const oldId of knownProjectIds) {
         if (!currentIds.has(oldId)) {
           await deleteDoc(doc(db, "portfolio_projects", oldId)).catch(console.warn);
         }
       }
       knownProjectIds = currentIds;
+      lastRemoteData = toSave;
     } catch (err: any) {
       if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
         isQuotaExceeded = true;
