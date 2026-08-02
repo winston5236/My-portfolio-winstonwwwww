@@ -12,7 +12,8 @@ import {
   Image,
   Box,
   Globe,
-  Video
+  Video,
+  ExternalLink
 } from "lucide-react";
 
 interface FocusWheelProps {
@@ -557,7 +558,19 @@ export const FocusWheel: React.FC<FocusWheelProps> = ({
                             )}
 
                             {/* Mini Type Icon Badge */}
-                            <div className="absolute top-1 right-1 p-1 rounded-full bg-black/75 backdrop-blur-sm border border-white/10">
+                            <div className="absolute top-1 right-1 p-1 rounded-full bg-black/75 backdrop-blur-sm border border-white/10 flex items-center gap-1">
+                              {proj.link && (
+                                <a
+                                  href={proj.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[var(--accent-web)] hover:text-white"
+                                  title={`External Link: ${proj.link}`}
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
                               <Icon className="w-2.5 h-2.5" style={{ color: accentColor }} />
                             </div>
 

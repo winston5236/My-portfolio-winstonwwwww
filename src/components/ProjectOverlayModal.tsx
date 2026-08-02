@@ -59,6 +59,16 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
     ? project.models
     : (project.model ? [project.model] : []);
 
+  const handleCoverFileUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result) {
+        onUpdateProject(project.id, "cover", reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Safe index bounds
   const currentProcessImg = processItems[processIdx % processItems.length] || project.cover;
   const currentFinalImg = finalItems[finalIdx % finalItems.length] || project.cover;
@@ -612,20 +622,38 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                 <span>{project.coverFit === "contain" ? "Fit Whole Image" : "Crop Fill Image"}</span>
               </button>
 
-              {/* Upload/Change Thumbnail URL */}
+              {/* Upload Cover from Computer or Custom URL */}
               {isEditorActive && (
-                <button
-                  onClick={() => {
-                    const newUrl = prompt("Enter new thumbnail image URL (or paste link):", project.cover);
-                    if (newUrl && newUrl.trim()) {
-                      onUpdateProject(project.id, "cover", newUrl.trim());
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded text-xs font-mono bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] text-[var(--text)] flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Upload className="w-3.5 h-3.5 text-[var(--accent-web)]" />
-                  <span>Upload / Custom URL</span>
-                </button>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <label className="px-3 py-1.5 rounded text-xs font-mono bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--accent-web)] text-[var(--text)] flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm">
+                    <Upload className="w-3.5 h-3.5 text-[var(--accent-web)]" />
+                    <span>Upload from Computer</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleCoverFileUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    onClick={() => {
+                      const newUrl = prompt("Enter thumbnail image URL (or paste link):", project.cover);
+                      if (newUrl && newUrl.trim()) {
+                        onUpdateProject(project.id, "cover", newUrl.trim());
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded text-xs font-mono bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] text-[var(--muted)] hover:text-white flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title="Paste Image Link"
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Paste Link</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -799,41 +827,61 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
             </div>
           </div>
 
-          {/* External Links */}
-          <div className="pt-4 border-t border-[var(--line)] flex items-center justify-between">
-            {project.link ? (
-              <a
-                href={project.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text)] hover:text-[var(--accent-web)] border-b border-[var(--accent-web)] pb-0.5 transition-colors"
-              >
-                <span>Visit live project</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            ) : isEditorActive ? (
-              <button
-                onClick={() => {
-                  const link = prompt("Enter live project URL (e.g. https://myproject.com):");
-                  if (link) onUpdateProject(project.id, "link", link);
-                }}
-                className="text-xs font-mono text-[var(--accent-web)] hover:underline cursor-pointer"
-              >
-                + Add Live Link URL
-              </button>
-            ) : null}
+          {/* External Links Section */}
+          <div className="pt-6 mt-6 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-4 bg-[var(--surface-2)] p-4 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded bg-[var(--surface)] border border-[var(--line)] text-[var(--accent-web)]">
+                <Globe className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-mono text-xs font-bold text-[var(--text)] uppercase tracking-wider">
+                  External Website / Live Link
+                </h4>
+                {project.link ? (
+                  <a
+                    href={project.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-mono text-[var(--accent-web)] hover:underline flex items-center gap-1 mt-0.5"
+                  >
+                    <span>{project.link}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <p className="text-[11px] font-mono text-[var(--muted)] mt-0.5">
+                    No external website link set for this project.
+                  </p>
+                )}
+              </div>
+            </div>
 
-            {isEditorActive && project.link && (
-              <button
-                onClick={() => {
-                  const newLink = prompt("Edit link URL:", project.link);
-                  if (newLink !== null) onUpdateProject(project.id, "link", newLink);
-                }}
-                className="text-xs font-mono text-[var(--muted)] hover:text-[var(--text)] cursor-pointer"
-              >
-                Edit Link
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {project.link && (
+                <a
+                  href={project.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-[var(--accent-web)] hover:bg-[var(--accent-web)]/90 text-black font-mono font-bold text-xs rounded flex items-center gap-2 shadow-md transition-all hover:scale-105"
+                >
+                  <span>Visit External Website</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+
+              {isEditorActive && (
+                <button
+                  onClick={() => {
+                    const newLink = prompt("Enter external website URL (e.g. https://myproject.com):", project.link || "");
+                    if (newLink !== null) {
+                      onUpdateProject(project.id, "link", newLink.trim());
+                    }
+                  }}
+                  className="px-3 py-2 bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--muted)] text-xs font-mono text-[var(--text)] rounded flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <span>{project.link ? "Edit Link" : "+ Add External Link"}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

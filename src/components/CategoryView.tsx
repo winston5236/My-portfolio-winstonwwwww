@@ -46,6 +46,16 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
 }) => {
   const categoryProjects = projects.filter((p) => p.category === category.id);
 
+  const handleCoverFileUpload = (projectId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result) {
+        onUpdateProject(projectId, "cover", reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="max-w-[1180px] mx-auto px-6 sm:px-8 py-3 sm:py-4 min-h-[80vh] animate-fadeIn">
       {/* Top Bar: Back Link & Clear Project Count Indicator */}
@@ -182,8 +192,8 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
 
                   {/* Editor Overlay Controls on Card */}
                   {isEditorActive && (
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1.5 z-10">
-                      <div className="flex items-center gap-1">
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {/* Toggle Crop vs Fit All */}
                         <button
                           onClick={(e) => {
@@ -192,7 +202,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                             onUpdateProject(project.id, "coverFit", nextFit);
                           }}
                           className="px-2 py-1 bg-black/90 hover:bg-black border border-white/20 text-white rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer shadow-md transition-colors"
-                          title={project.coverFit === "contain" ? "Currently: Fit All (Contain). Click to Crop to Fill" : "Currently: Crop Fill. Click to Fit All (Contain with black space)"}
+                          title={project.coverFit === "contain" ? "Currently: Fit All (Contain). Click to Crop Fill" : "Currently: Crop Fill. Click to Fit All"}
                         >
                           {project.coverFit === "contain" ? (
                             <Maximize2 className="w-3 h-3 text-amber-400" />
@@ -201,6 +211,27 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                           )}
                           <span>{project.coverFit === "contain" ? "Fit All" : "Crop"}</span>
                         </button>
+
+                        {/* Upload Cover Image from Computer */}
+                        <label
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-2 py-1 bg-black/90 hover:bg-black border border-white/20 text-white hover:border-[var(--accent-web)] rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer shadow-md transition-colors"
+                          title="Upload Thumbnail from Computer"
+                        >
+                          <Upload className="w-3 h-3 text-[var(--accent-web)]" />
+                          <span>Upload</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              if (e.target.files?.[0]) {
+                                handleCoverFileUpload(project.id, e.target.files[0]);
+                              }
+                            }}
+                          />
+                        </label>
 
                         {/* Change Cover Image URL */}
                         <button
@@ -212,10 +243,10 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                             }
                           }}
                           className="px-2 py-1 bg-black/90 hover:bg-black border border-white/20 text-white rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer shadow-md transition-colors"
-                          title="Change Thumbnail Image"
+                          title="Paste Image Link"
                         >
-                          <ImageIcon className="w-3 h-3 text-[var(--accent-web)]" />
-                          <span>Cover</span>
+                          <Globe className="w-3 h-3 text-[var(--muted)]" />
+                          <span>URL</span>
                         </button>
                       </div>
 
@@ -227,7 +258,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                             onDeleteProject(project.id);
                           }
                         }}
-                        className="p-1.5 bg-red-950/90 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-full cursor-pointer transition-colors shadow-md"
+                        className="p-1.5 bg-red-950/90 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-full cursor-pointer transition-colors shadow-md ml-auto"
                         title="Delete Project"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -281,6 +312,48 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                         ))
                       )}
                     </div>
+                  </div>
+
+                  {/* External Website Link Row */}
+                  <div className="mt-3 pt-2.5 border-t border-[var(--line)]/50 flex items-center justify-between text-xs font-mono">
+                    {project.link ? (
+                      <a
+                        href={project.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[var(--accent-web)] hover:underline"
+                        title={`Open external website: ${project.link}`}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span className="truncate max-w-[170px]">{project.link.replace(/^https?:\/\//, '')}</span>
+                      </a>
+                    ) : isEditorActive ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = prompt("Enter external website link (e.g. https://myproject.com):");
+                          if (url) onUpdateProject(project.id, "link", url.trim());
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] text-[var(--muted)] hover:text-[var(--accent-web)] transition-colors cursor-pointer"
+                      >
+                        <Globe className="w-3 h-3 text-[var(--accent-web)]" />
+                        <span>+ Add External Link</span>
+                      </button>
+                    ) : null}
+
+                    {isEditorActive && project.link && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const newUrl = prompt("Edit external website link:", project.link);
+                          if (newUrl !== null) onUpdateProject(project.id, "link", newUrl.trim());
+                        }}
+                        className="text-[10px] text-[var(--muted)] hover:text-white transition-colors cursor-pointer ml-auto"
+                      >
+                        Edit Link
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>
