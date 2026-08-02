@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Category, Project, SiteSettings, ThemeSettings } from "./types";
 import { loadPortfolioState, DEFAULT_THEME } from "./defaultData";
-import { subscribeToPortfolio, saveToFirestore } from "./firestoreSync";
+import { subscribeToPortfolio, saveToFirestore, syncToCloudNow, subscribeSyncStatus, SyncStatus } from "./firestoreSync";
 
 import { Header } from "./components/Header";
 import { FocusWheel } from "./components/FocusWheel";
@@ -32,6 +32,13 @@ export default function App() {
   const [colorModalOpen, setColorModalOpen] = useState<boolean>(false);
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState<boolean>(false);
   const [addProjectModalOpen, setAddProjectModalOpen] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("synced");
+
+  // Subscribe to real-time cloud sync status
+  useEffect(() => {
+    const unsub = subscribeSyncStatus((st) => setSyncStatus(st));
+    return () => unsub();
+  }, []);
 
   // Synchronize CSS custom variables whenever theme changes
   useEffect(() => {
@@ -162,6 +169,15 @@ export default function App() {
     saveToFirestore({ site, theme: DEFAULT_THEME, categories, projects });
   };
 
+  const handleManualSync = async () => {
+    const ok = await syncToCloudNow({ site, theme, categories, projects });
+    if (ok) {
+      alert("All changes successfully pushed to Cloud! Connected browsers will update instantly.");
+    } else {
+      alert("Cloud quota reached for today. Your changes are saved safely in Local Storage and JSON export.");
+    }
+  };
+
   // Export standalone portfolio config
   const handleExportSite = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(
@@ -173,6 +189,30 @@ export default function App() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+  };
+
+  // Import JSON portfolio config
+  const handleImportSite = (jsonString: string) => {
+    try {
+      const data = JSON.parse(jsonString);
+      if (data.site && data.categories && data.projects) {
+        setSite(data.site);
+        if (data.theme) setTheme(data.theme);
+        setCategories(data.categories);
+        setProjects(data.projects);
+        saveToFirestore({
+          site: data.site,
+          theme: data.theme || DEFAULT_THEME,
+          categories: data.categories,
+          projects: data.projects
+        });
+        alert("Portfolio configuration imported successfully!");
+      } else {
+        alert("Invalid portfolio JSON format. Missing required fields.");
+      }
+    } catch (err) {
+      alert("Error reading JSON file. Please ensure it is a valid JSON export.");
+    }
   };
 
   return (
@@ -286,11 +326,14 @@ export default function App() {
       {/* Editor Floating Toolbar */}
       <EditorToolbar
         isEditorActive={isEditorActive}
+        syncStatus={syncStatus}
         onOpenColorModal={() => setColorModalOpen(true)}
         onOpenAddProject={() => setAddProjectModalOpen(true)}
         onOpenAddCategory={() => setAddCategoryModalOpen(true)}
         onClearAllProjects={handleClearAllProjects}
+        onManualSync={handleManualSync}
         onExportSite={handleExportSite}
+        onImportSite={handleImportSite}
         onExitEditor={() => setIsEditorActive(false)}
       />
     </div>

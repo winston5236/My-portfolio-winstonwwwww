@@ -10,46 +10,41 @@ export interface PortfolioData {
   projects: Project[];
 }
 
+export type SyncStatus = "synced" | "unsynced" | "saving" | "quota_exceeded" | "offline";
+
 const PORTFOLIO_DOC = doc(db, "portfolio", "main");
 
 let isQuotaExceeded = false;
-let pendingSaveData: PortfolioData | null = null;
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let statusListeners: Set<(status: SyncStatus) => void> = new Set();
+let currentStatus: SyncStatus = "synced";
+
+function setStatus(status: SyncStatus) {
+  currentStatus = status;
+  statusListeners.forEach((fn) => fn(status));
+}
+
+export function subscribeSyncStatus(listener: (status: SyncStatus) => void) {
+  statusListeners.add(listener);
+  listener(currentStatus);
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
 
 export function getQuotaExceeded(): boolean {
   return isQuotaExceeded;
 }
 
 export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
-  const localState = loadPortfolioState();
-
   let unsubMain = () => {};
 
   try {
     unsubMain = onSnapshot(
       PORTFOLIO_DOC,
       (snapshot) => {
-        const currentLocal = loadPortfolioState();
-        const localTime = currentLocal.updatedAt || 0;
-
         if (snapshot.exists()) {
           const val = snapshot.data();
-          const remoteTime = typeof val.updatedAtMs === "number"
-            ? val.updatedAtMs
-            : (val.updatedAt ? new Date(val.updatedAt).getTime() : 0);
 
-          // If local data is newer or updated recently, preserve local data
-          if (localTime > remoteTime) {
-            onData({
-              site: currentLocal.site,
-              theme: currentLocal.theme,
-              categories: currentLocal.categories,
-              projects: currentLocal.projects,
-            });
-            return;
-          }
-
-          // Remote data is newer or equal: adopt remote
           const remoteSite = { ...DEFAULT_SITE, ...(val.site || {}) };
           const remoteTheme = { ...DEFAULT_THEME, ...(val.theme || {}) };
           const remoteCategories = Array.isArray(val.categories) && val.categories.length ? val.categories : DEFAULT_CATEGORIES;
@@ -62,10 +57,14 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
             projects: remoteProjects,
           };
 
-          savePortfolioState({ ...newData, updatedAt: remoteTime || Date.now() });
+          // Save received cloud data into local storage
+          savePortfolioState({ ...newData, updatedAt: Date.now() });
           onData(newData);
+          if (!isQuotaExceeded && currentStatus !== "unsynced") {
+            setStatus("synced");
+          }
         } else {
-          // Initialize remote doc with local data if doc doesn't exist
+          const localState = loadPortfolioState();
           onData({
             site: localState.site,
             theme: localState.theme,
@@ -77,6 +76,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
       (err: any) => {
         if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
           isQuotaExceeded = true;
+          setStatus("quota_exceeded");
         } else {
           console.warn("Firestore snapshot notice:", err?.message || err);
         }
@@ -92,6 +92,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   } catch (err: any) {
     if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
       isQuotaExceeded = true;
+      setStatus("quota_exceeded");
     }
     const fallback = loadPortfolioState();
     onData({
@@ -107,45 +108,59 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   };
 }
 
-export async function saveToFirestore(data: PortfolioData) {
-  const now = Date.now();
+/**
+ * Saves to LocalStorage immediately so local browser edits are preserved instantly on refresh,
+ * WITHOUT making auto-writes to Firestore.
+ */
+export function saveLocalState(data: PortfolioData) {
+  savePortfolioState({ ...data, updatedAt: Date.now() });
+  if (!isQuotaExceeded) {
+    setStatus("unsynced");
+  } else {
+    setStatus("quota_exceeded");
+  }
+}
 
-  // 1. ALWAYS save to LocalStorage immediately for instant persistence across refreshes
+// Deprecated alias for backwards compatibility
+export function saveToFirestore(data: PortfolioData) {
+  saveLocalState(data);
+}
+
+/**
+ * Explicitly pushes current portfolio data to Firestore when user clicks "Sync to Cloud Now".
+ */
+export async function syncToCloudNow(data: PortfolioData): Promise<boolean> {
+  const now = Date.now();
   savePortfolioState({ ...data, updatedAt: now });
 
   if (isQuotaExceeded) {
-    return;
+    setStatus("quota_exceeded");
+    return false;
   }
 
-  pendingSaveData = data;
-
-  if (saveTimeout) clearTimeout(saveTimeout);
-
-  saveTimeout = setTimeout(async () => {
-    if (!pendingSaveData) return;
-    const toSave = pendingSaveData;
-
-    try {
-      await setDoc(
-        PORTFOLIO_DOC,
-        {
-          site: toSave.site,
-          theme: toSave.theme,
-          categories: toSave.categories,
-          projects: toSave.projects,
-          updatedAtMs: now,
-          updatedAt: new Date(now).toISOString(),
-        },
-        { merge: true }
-      );
-    } catch (err: any) {
-      if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
-        isQuotaExceeded = true;
-      } else {
-        console.warn("Firestore save notice:", err?.message || err);
-      }
-    } finally {
-      pendingSaveData = null;
+  setStatus("saving");
+  try {
+    await setDoc(
+      PORTFOLIO_DOC,
+      {
+        site: data.site,
+        theme: data.theme,
+        categories: data.categories,
+        projects: data.projects,
+        updatedAtMs: now,
+        updatedAt: new Date(now).toISOString(),
+      },
+      { merge: true }
+    );
+    setStatus("synced");
+    return true;
+  } catch (err: any) {
+    if (err?.code === "resource-exhausted" || err?.message?.includes("Quota limit exceeded")) {
+      isQuotaExceeded = true;
+      setStatus("quota_exceeded");
+    } else {
+      console.warn("Manual sync error:", err);
     }
-  }, 150);
+    return false;
+  }
 }
