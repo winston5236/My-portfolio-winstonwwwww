@@ -111,29 +111,23 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
   const [urlInput, setUrlInput] = useState<string>("");
 
-  // Get quadrant media arrays with fallback defaults
+  // Get quadrant media arrays cleanly without fallback copying
   const processItems = project
-    ? ((project.processImages && project.processImages.length > 0)
+    ? (project.processImages !== undefined
         ? project.processImages
-        : (project.images && project.images.length > 0 ? project.images : [project.cover]))
+        : (project.images && project.images.length > 0 ? project.images : []))
     : [];
 
   const finalItems = project
-    ? ((project.finalImages && project.finalImages.length > 0)
-        ? project.finalImages
-        : [project.cover])
+    ? (project.finalImages !== undefined ? project.finalImages : [])
     : [];
 
   const videoItems = project
-    ? ((project.videos && project.videos.length > 0)
-        ? project.videos
-        : (project.video ? [project.video] : []))
+    ? (project.videos !== undefined ? project.videos : (project.video ? [project.video] : []))
     : [];
 
   const modelItems = project
-    ? ((project.models && project.models.length > 0)
-        ? project.models
-        : (project.model ? [project.model] : []))
+    ? (project.models !== undefined ? project.models : (project.model ? [project.model] : []))
     : [];
 
   // Keyboard Navigation for Lightbox & Esc to Close
@@ -161,12 +155,6 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   if (!project) return null;
 
   const handleCoverChange = (newCoverUrl: string) => {
-    if (!project.processImages || project.processImages.length === 0) {
-      onUpdateProject(project.id, "processImages", [...processItems]);
-    }
-    if (!project.finalImages || project.finalImages.length === 0) {
-      onUpdateProject(project.id, "finalImages", [...finalItems]);
-    }
     onUpdateProject(project.id, "cover", newCoverUrl);
   };
 
@@ -180,10 +168,10 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
   };
 
   // Safe index bounds
-  const currentProcessImg = processItems[processIdx % processItems.length] || project?.cover;
-  const currentFinalImg = finalItems[finalIdx % finalItems.length] || project?.cover;
-  const currentVideo = videoItems[videoIdx % videoItems.length];
-  const currentModel = modelItems[modelIdx % modelItems.length];
+  const currentProcessImg = processItems.length > 0 ? processItems[processIdx % processItems.length] : null;
+  const currentFinalImg = finalItems.length > 0 ? finalItems[finalIdx % finalItems.length] : null;
+  const currentVideo = videoItems.length > 0 ? videoItems[videoIdx % videoItems.length] : null;
+  const currentModel = modelItems.length > 0 ? modelItems[modelIdx % modelItems.length] : null;
 
   // Open Full Uncropped Lightbox
   const handleOpenLightbox = (type: "process" | "final", initialIdx: number) => {
@@ -351,8 +339,10 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
             className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 pt-1 px-1 scrollbar-thin scrollbar-thumb-[var(--line)] scrollbar-track-transparent"
           >
             {cardOrder.map((cardKey, cardIdx) => {
-              // Hide empty video or model cards in View Mode
+              // Hide empty cards in View Mode
               if (!isEditorActive) {
+                if (cardKey === "process" && processItems.length === 0) return null;
+                if (cardKey === "final" && finalItems.length === 0) return null;
                 if (cardKey === "video" && videoItems.length === 0) return null;
                 if (cardKey === "model" && modelItems.length === 0) return null;
               }
@@ -418,20 +408,32 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                     )}
 
                     {/* Expand Full Lightbox Button */}
-                    <button
-                      onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
-                      className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q1:opacity-100 transition-all cursor-pointer shadow-md"
-                      title="View Full Uncropped Image"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-web)]" />
-                    </button>
+                    {currentProcessImg && (
+                      <button
+                        onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
+                        className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q1:opacity-100 transition-all cursor-pointer shadow-md"
+                        title="View Full Uncropped Image"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-web)]" />
+                      </button>
+                    )}
 
-                    <img
-                      src={currentProcessImg}
-                      alt={`${project.title} process`}
-                      onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
-                      className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
-                    />
+                    {currentProcessImg ? (
+                      <img
+                        src={currentProcessImg}
+                        alt={`${project.title} process`}
+                        onClick={() => handleOpenLightbox("process", processIdx % processItems.length)}
+                        className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
+                      />
+                    ) : (
+                      <div
+                        onClick={() => handleOpenUpload("processImages")}
+                        className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-center cursor-pointer hover:bg-[var(--surface)] transition-colors text-[var(--muted)]"
+                      >
+                        <Upload className="w-6 h-6 text-[var(--accent-web)]" />
+                        <span className="text-xs font-mono">+ Add Process Image</span>
+                      </div>
+                    )}
 
                     {/* Prev / Next Arrows */}
                     {processItems.length > 1 && (
@@ -552,20 +554,32 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                     )}
 
                     {/* Expand Full Lightbox Button */}
-                    <button
-                      onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
-                      className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q2:opacity-100 transition-all cursor-pointer shadow-md"
-                      title="View Full Uncropped Image"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-photo)]" />
-                    </button>
+                    {currentFinalImg && (
+                      <button
+                        onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
+                        className="absolute top-2.5 right-2.5 z-20 p-1.5 bg-[#121316]/90 hover:bg-black text-white backdrop-blur-md rounded-full border border-[var(--line)] opacity-80 group-hover/q2:opacity-100 transition-all cursor-pointer shadow-md"
+                        title="View Full Uncropped Image"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5 text-[var(--accent-photo)]" />
+                      </button>
+                    )}
 
-                    <img
-                      src={currentFinalImg}
-                      alt={`${project.title} final`}
-                      onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
-                      className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
-                    />
+                    {currentFinalImg ? (
+                      <img
+                        src={currentFinalImg}
+                        alt={`${project.title} final`}
+                        onClick={() => handleOpenLightbox("final", finalIdx % finalItems.length)}
+                        className="w-full h-full object-cover transition-all duration-300 cursor-zoom-in"
+                      />
+                    ) : (
+                      <div
+                        onClick={() => handleOpenUpload("finalImages")}
+                        className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-center cursor-pointer hover:bg-[var(--surface)] transition-colors text-[var(--muted)]"
+                      >
+                        <Upload className="w-6 h-6 text-[var(--accent-photo)]" />
+                        <span className="text-xs font-mono">+ Add Final Image</span>
+                      </div>
+                    )}
 
                     {/* Prev / Next Arrows */}
                     {finalItems.length > 1 && (

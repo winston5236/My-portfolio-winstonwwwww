@@ -47,18 +47,6 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
   const categoryProjects = projects.filter((p) => p.category === category.id);
 
   const handleCoverChange = (projectId: string, newCoverUrl: string) => {
-    const proj = categoryProjects.find((p) => p.id === projectId);
-    if (proj) {
-      const pItems = (proj.processImages && proj.processImages.length > 0)
-        ? proj.processImages
-        : (proj.images && proj.images.length > 0 ? proj.images : [proj.cover]);
-      if (!proj.processImages || proj.processImages.length === 0) {
-        onUpdateProject(projectId, "processImages", [...pItems]);
-      }
-      if (!proj.finalImages || proj.finalImages.length === 0) {
-        onUpdateProject(projectId, "finalImages", [proj.cover]);
-      }
-    }
     onUpdateProject(projectId, "cover", newCoverUrl);
   };
 
