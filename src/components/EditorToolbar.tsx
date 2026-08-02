@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Palette, Plus, Download, Upload, LogOut, Sparkles, Trash2, CloudCheck, CloudOff, RefreshCw, CloudUpload } from "lucide-react";
+import { Palette, Plus, Download, Upload, LogOut, Sparkles, Trash2, CloudCheck, CloudOff, RefreshCw } from "lucide-react";
 import { SyncStatus } from "../firestoreSync";
 
 interface EditorToolbarProps {
@@ -9,7 +9,6 @@ interface EditorToolbarProps {
   onOpenAddProject: () => void;
   onOpenAddCategory: () => void;
   onClearAllProjects?: () => void;
-  onManualSync?: () => void;
   onExportSite: () => void;
   onImportSite?: (jsonData: string) => void;
   onExitEditor: () => void;
@@ -22,7 +21,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onOpenAddProject,
   onOpenAddCategory,
   onClearAllProjects,
-  onManualSync,
   onExportSite,
   onImportSite,
   onExitEditor
@@ -47,7 +45,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--surface)]/95 backdrop-blur-md border-t border-[var(--line)] py-3 px-4 sm:px-8 flex flex-col md:flex-row items-center justify-between gap-3 shadow-2xl animate-slideUp">
-      <div className="flex items-center gap-3 font-mono text-xs">
+      <div className="flex items-center gap-3 font-mono text-xs flex-wrap">
         <div className="flex items-center gap-2 text-[var(--accent-video)]">
           <Sparkles className="w-4 h-4 animate-pulse" />
           <span className="font-semibold">EDITOR MODE</span>
@@ -55,43 +53,26 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
         {/* Sync status indicator */}
         {syncStatus === "synced" && (
-          <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px]" title="Real-time Cloud Sync Active">
+          <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px]" title="Real-time automatic Cloud Sync active">
             <CloudCheck className="w-3.5 h-3.5" />
             <span>Cloud Synced</span>
           </div>
         )}
-        {syncStatus === "unsynced" && (
-          <div className="flex items-center gap-1.5 text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px]" title="Edits saved locally in browser. Click 'Sync to Cloud Now' to send to Firestore for all devices!">
-            <CloudUpload className="w-3.5 h-3.5 text-amber-400" />
-            <span>Local Edits Pending Cloud Sync</span>
-          </div>
-        )}
         {syncStatus === "saving" && (
-          <div className="flex items-center gap-1.5 text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px]" title="Saving to Cloud & Local Storage...">
+          <div className="flex items-center gap-1.5 text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px]" title="Saving changes automatically to Cloud...">
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            <span>Syncing...</span>
+            <span>Syncing to Cloud...</span>
           </div>
         )}
         {syncStatus === "quota_exceeded" && (
-          <div className="flex items-center gap-1.5 text-amber-400 bg-amber-950/80 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-[11px]" title="Firebase daily free write quota reached. App is safely saved in LocalStorage & JSON export is ready.">
+          <div className="flex items-center gap-1.5 text-amber-400 bg-amber-950/80 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-[11px]" title="Firebase write limit reached. Saved safely in Local Storage & JSON export.">
             <CloudOff className="w-3.5 h-3.5" />
-            <span>Saved Locally (Cloud Quota Reached)</span>
+            <span>Saved Locally (Quota Limit)</span>
           </div>
         )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap justify-center md:justify-end">
-        {onManualSync && (
-          <button
-            onClick={onManualSync}
-            className="flex items-center gap-1.5 bg-sky-950/80 hover:bg-sky-900 border border-sky-500/40 text-sky-300 px-3.5 py-1.5 rounded-full font-mono text-xs font-semibold cursor-pointer transition-all shadow-sm"
-            title="Push all your local edits to the Cloud instantly at once (saves quota!)"
-          >
-            <CloudUpload className="w-3.5 h-3.5 text-sky-400" />
-            <span>Sync to Cloud Now</span>
-          </button>
-        )}
-
         <button
           onClick={onOpenColorModal}
           className="flex items-center gap-1.5 bg-[var(--surface-2)] border border-[var(--line)] hover:border-[var(--muted)] text-[var(--text)] px-3.5 py-1.5 rounded-full font-mono text-xs cursor-pointer transition-all"
