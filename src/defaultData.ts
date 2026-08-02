@@ -183,6 +183,7 @@ export function loadPortfolioState(): {
   theme: ThemeSettings;
   categories: Category[];
   projects: Project[];
+  updatedAt: number;
 } {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -193,7 +194,8 @@ export function loadPortfolioState(): {
         site: { ...DEFAULT_SITE, ...parsed.site },
         theme: { ...DEFAULT_THEME, ...parsed.theme },
         categories: parsed.categories && Array.isArray(parsed.categories) && parsed.categories.length ? parsed.categories : DEFAULT_CATEGORIES,
-        projects: (parsed.projects !== undefined && Array.isArray(parsed.projects)) ? parsed.projects : DEFAULT_PROJECTS
+        projects: (parsed.projects !== undefined && Array.isArray(parsed.projects)) ? parsed.projects : DEFAULT_PROJECTS,
+        updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : 0
       };
     }
   } catch (e) {
@@ -203,7 +205,8 @@ export function loadPortfolioState(): {
     site: DEFAULT_SITE,
     theme: DEFAULT_THEME,
     categories: DEFAULT_CATEGORIES,
-    projects: DEFAULT_PROJECTS
+    projects: DEFAULT_PROJECTS,
+    updatedAt: 0
   };
 }
 
@@ -212,9 +215,14 @@ export function savePortfolioState(data: {
   theme: ThemeSettings;
   categories: Category[];
   projects: Project[];
+  updatedAt?: number;
 }) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const toSave = {
+      ...data,
+      updatedAt: typeof data.updatedAt === "number" ? data.updatedAt : Date.now()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   } catch (e) {
     console.error("Failed to save portfolio state to localStorage:", e);
   }
