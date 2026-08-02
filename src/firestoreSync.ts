@@ -26,20 +26,23 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
     async (snapshot) => {
       if (snapshot.exists()) {
         const val = snapshot.data();
-        const firestoreProjects = val.projects && Array.isArray(val.projects) && val.projects.length ? val.projects : DEFAULT_PROJECTS;
+        const firestoreProjects: Project[] = val.projects && Array.isArray(val.projects) && val.projects.length ? val.projects : DEFAULT_PROJECTS;
         const currentLocal = loadPortfolioState();
 
-        // If local storage has more projects than Firestore (e.g. freshly added locally before sync), prioritize local and write to Firestore
-        const useLocalProjects = currentLocal.projects.length > firestoreProjects.length;
+        // Merge any locally added projects that aren't in Firestore yet
+        const firestoreIds = new Set(firestoreProjects.map((p) => p.id));
+        const localOnlyProjects = (currentLocal.projects || []).filter((p) => !firestoreIds.has(p.id));
+
+        const mergedProjects = [...firestoreProjects, ...localOnlyProjects];
 
         const data: PortfolioData = {
           site: { ...DEFAULT_SITE, ...(val.site || {}) },
           theme: { ...DEFAULT_THEME, ...(val.theme || {}) },
           categories: val.categories && Array.isArray(val.categories) && val.categories.length ? val.categories : DEFAULT_CATEGORIES,
-          projects: useLocalProjects ? currentLocal.projects : firestoreProjects
+          projects: mergedProjects
         };
 
-        if (useLocalProjects) {
+        if (localOnlyProjects.length > 0) {
           saveToFirestore(data);
         } else {
           savePortfolioState(data);

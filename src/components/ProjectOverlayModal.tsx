@@ -3,6 +3,7 @@ import { Project } from "../types";
 import { ThreeModelViewer } from "./ThreeModelViewer";
 import { EditableText } from "./EditableText";
 import { X, ExternalLink, Plus, Trash2, Upload, Box, Image as ImageIcon, Video as VideoIcon, ChevronLeft, ChevronRight, Maximize2, ZoomIn, Crop, Check, Sparkles, Globe, GripVertical, ArrowLeft, ArrowRight } from "lucide-react";
+import { compressImageFile } from "../lib/imageCompressor";
 
 interface ProjectOverlayModalProps {
   project: Project | null;
@@ -44,6 +45,24 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
     } else {
       setCardOrder(["process", "final", "video", "model"]);
     }
+
+    setProcessIdx(0);
+    setFinalIdx(0);
+    setVideoIdx(0);
+    setModelIdx(0);
+
+    // Explicitly reset carousel scroll position to the far left (0px)
+    const t1 = setTimeout(() => {
+      if (carouselRef.current) carouselRef.current.scrollLeft = 0;
+    }, 20);
+    const t2 = setTimeout(() => {
+      if (carouselRef.current) carouselRef.current.scrollLeft = 0;
+    }, 150);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [project?.id, project?.cardOrder]);
 
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
@@ -151,19 +170,18 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
     onUpdateProject(project.id, "cover", newCoverUrl);
   };
 
-  const handleCoverFileUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result) {
-        handleCoverChange(reader.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+  const handleCoverFileUpload = async (file: File) => {
+    try {
+      const dataUrl = await compressImageFile(file);
+      handleCoverChange(dataUrl);
+    } catch (err) {
+      console.error("Error compressing cover upload:", err);
+    }
   };
 
   // Safe index bounds
-  const currentProcessImg = processItems[processIdx % processItems.length] || project.cover;
-  const currentFinalImg = finalItems[finalIdx % finalItems.length] || project.cover;
+  const currentProcessImg = processItems[processIdx % processItems.length] || project?.cover;
+  const currentFinalImg = finalItems[finalIdx % finalItems.length] || project?.cover;
   const currentVideo = videoItems[videoIdx % videoItems.length];
   const currentModel = modelItems[modelIdx % modelItems.length];
 
@@ -187,16 +205,16 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
     saveMediaValue(val);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    try {
+      const dataUrl = await compressImageFile(file);
       saveMediaValue(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Error processing file upload:", err);
+    }
   };
 
   const saveMediaValue = (val: string) => {
@@ -270,25 +288,45 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
         </button>
 
         {/* =========================================================================
-            SLIDABLE 4-CARD MEDIA SHOWCASE REEL (Process, Final, Video, 3D Model)
+            SLIDABLE MEDIA SHOWCASE REEL (Process, Final, Video, 3D Model)
             ========================================================================= */}
         <div className="w-full bg-[#0d0e11] border-b border-[var(--line)] py-3 px-3">
           {/* Header Controls & Scroll Hints */}
           <div className="flex items-center justify-between px-1 mb-2.5 font-mono text-[11px] text-[var(--muted)]">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[var(--accent-web)] animate-pulse" />
-              <span className="uppercase tracking-wider font-semibold text-[#ece9e3]">Media Reel (4 Cards)</span>
+              <span className="uppercase tracking-wider font-semibold text-[#ece9e3]">
+                Media Reel ({cardOrder.filter(k => isEditorActive || (k === "video" ? videoItems.length > 0 : k === "model" ? modelItems.length > 0 : true)).length} Cards)
+              </span>
               {isEditorActive && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-amber-400 text-[10px] bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30 ml-2">
-                  <GripVertical className="w-3 h-3" /> Drag cards or use ← → to reorder
-                </span>
+                <div className="flex items-center gap-1.5 ml-2">
+                  <span className="hidden sm:inline-flex items-center gap-1 text-amber-400 text-[10px] bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
+                    <GripVertical className="w-3 h-3" /> Drag cards or use ← →
+                  </span>
+                  {videoItems.length === 0 && (
+                    <button
+                      onClick={() => handleOpenUpload("videos")}
+                      className="text-[10px] text-[var(--accent-video)] bg-[var(--accent-video)]/10 hover:bg-[var(--accent-video)]/20 px-2 py-0.5 rounded border border-[var(--accent-video)]/30 transition-colors cursor-pointer"
+                    >
+                      + Add Video
+                    </button>
+                  )}
+                  {modelItems.length === 0 && (
+                    <button
+                      onClick={() => handleOpenUpload("models")}
+                      className="text-[10px] text-[var(--accent-3d)] bg-[var(--accent-3d)]/10 hover:bg-[var(--accent-3d)]/20 px-2 py-0.5 rounded border border-[var(--accent-3d)]/30 transition-colors cursor-pointer"
+                    >
+                      + Add 3D Model
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
               <span className="hidden sm:inline text-[10px] opacity-75">← Slide or use buttons to view media →</span>
               <button
                 onClick={() => {
-                  if (carouselRef.current) carouselRef.current.scrollBy({ left: -320, behavior: "smooth" });
+                  if (carouselRef.current) carouselRef.current.scrollBy({ left: -300, behavior: "smooth" });
                 }}
                 className="p-1 rounded bg-[#1a1c20] hover:bg-[#282b32] text-white border border-[var(--line)] cursor-pointer transition-colors"
                 title="Scroll Left"
@@ -297,7 +335,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
               </button>
               <button
                 onClick={() => {
-                  if (carouselRef.current) carouselRef.current.scrollBy({ left: 320, behavior: "smooth" });
+                  if (carouselRef.current) carouselRef.current.scrollBy({ left: 300, behavior: "smooth" });
                 }}
                 className="p-1 rounded bg-[#1a1c20] hover:bg-[#282b32] text-white border border-[var(--line)] cursor-pointer transition-colors"
                 title="Scroll Right"
@@ -313,6 +351,12 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
             className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 pt-1 px-1 scrollbar-thin scrollbar-thumb-[var(--line)] scrollbar-track-transparent"
           >
             {cardOrder.map((cardKey, cardIdx) => {
+              // Hide empty video or model cards in View Mode
+              if (!isEditorActive) {
+                if (cardKey === "video" && videoItems.length === 0) return null;
+                if (cardKey === "model" && modelItems.length === 0) return null;
+              }
+
               if (cardKey === "process") {
                 return (
                   <div
@@ -334,7 +378,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                       }
                     }}
                     onDragEnd={() => setDraggedCard(null)}
-                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q1 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                    className={`relative w-[58%] sm:w-[35%] md:w-[32%] lg:w-[28%] min-w-[210px] max-w-[360px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q1 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
                       draggedCard === "process" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
                     } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
                   >
@@ -468,7 +512,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                       }
                     }}
                     onDragEnd={() => setDraggedCard(null)}
-                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q2 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                    className={`relative w-[58%] sm:w-[35%] md:w-[32%] lg:w-[28%] min-w-[210px] max-w-[360px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q2 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
                       draggedCard === "final" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
                     } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
                   >
@@ -602,7 +646,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                       }
                     }}
                     onDragEnd={() => setDraggedCard(null)}
-                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q3 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                    className={`relative w-[58%] sm:w-[35%] md:w-[32%] lg:w-[28%] min-w-[210px] max-w-[360px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q3 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
                       draggedCard === "video" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
                     } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
                   >
@@ -733,7 +777,7 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                       }
                     }}
                     onDragEnd={() => setDraggedCard(null)}
-                    className={`relative w-[70%] sm:w-[42%] md:w-[38%] lg:w-[35%] min-w-[240px] max-w-[400px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q4 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
+                    className={`relative w-[58%] sm:w-[35%] md:w-[32%] lg:w-[28%] min-w-[210px] max-w-[360px] flex-shrink-0 snap-start aspect-[4/3] bg-[var(--surface-2)] overflow-hidden group/q4 border rounded-sm flex items-center justify-center shadow-lg transition-all ${
                       draggedCard === "model" ? "opacity-50 border-amber-400 scale-95" : "border-[var(--line)]/60"
                     } ${isEditorActive ? "cursor-grab active:cursor-grabbing hover:border-amber-400/80" : ""}`}
                   >

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Category, Project, MediaType } from "../types";
 import { X, Plus, Upload } from "lucide-react";
+import { compressImageFile } from "../lib/imageCompressor";
 
 interface AddProjectModalProps {
   isOpen: boolean;
@@ -32,28 +33,28 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    try {
+      const dataUrl = await compressImageFile(file);
       setCover(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Error compressing cover image:", err);
+    }
   };
 
-  const handleProcessFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProcessFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    try {
+      const dataUrl = await compressImageFile(file);
       setProcessImage(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Error compressing process image:", err);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
