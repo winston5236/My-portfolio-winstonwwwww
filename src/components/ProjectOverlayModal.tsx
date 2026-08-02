@@ -954,51 +954,51 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
             )}
           </div>
 
-          {/* Dedicated Thumbnail & Crop/Fit Settings Bar */}
-          <div className="my-6 p-4 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-12 rounded border border-[var(--line)] overflow-hidden bg-black flex-none relative">
-                <img
-                  src={project.cover}
-                  alt="Thumbnail"
-                  className={`w-full h-full ${project.coverFit === "contain" ? "object-contain" : "object-cover"}`}
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-[var(--text)] uppercase tracking-wider">
-                    Project Thumbnail
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--line)] text-[var(--muted)]">
-                    {project.coverFit === "contain" ? "Fit All (Contain)" : "Crop Fill (Cover)"}
-                  </span>
+          {/* Dedicated Thumbnail & Crop/Fit Settings Bar - ONLY visible in Editor Mode */}
+          {isEditorActive && (
+            <div className="my-6 p-4 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-12 rounded border border-[var(--line)] overflow-hidden bg-black flex-none relative">
+                  <img
+                    src={project.cover}
+                    alt="Thumbnail"
+                    className={`w-full h-full ${project.coverFit === "contain" ? "object-contain" : "object-cover"}`}
+                  />
                 </div>
-                <p className="text-[11px] font-mono text-[var(--muted)] mt-0.5">
-                  Click any image below to set as thumbnail, or choose fit style.
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-[var(--text)] uppercase tracking-wider">
+                      Project Thumbnail
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--line)] text-[var(--muted)]">
+                      {project.coverFit === "contain" ? "Fit All (Contain)" : "Crop Fill (Cover)"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-mono text-[var(--muted)] mt-0.5">
+                    Click any image below to set as thumbnail, or choose fit style.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Toggle Fit Mode */}
-              <button
-                onClick={() => {
-                  const nextFit = project.coverFit === "contain" ? "cover" : "contain";
-                  onUpdateProject(project.id, "coverFit", nextFit);
-                }}
-                className={`px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 border transition-colors cursor-pointer ${
-                  project.coverFit === "contain"
-                    ? "bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30"
-                    : "bg-cyan-500/20 border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/30"
-                }`}
-                title="Toggle between cropping to fill frame vs showing whole image with black space"
-              >
-                {project.coverFit === "contain" ? <Maximize2 className="w-3.5 h-3.5" /> : <Crop className="w-3.5 h-3.5" />}
-                <span>{project.coverFit === "contain" ? "Fit Whole Image" : "Crop Fill Image"}</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Toggle Fit Mode */}
+                <button
+                  onClick={() => {
+                    const nextFit = project.coverFit === "contain" ? "cover" : "contain";
+                    onUpdateProject(project.id, "coverFit", nextFit);
+                  }}
+                  className={`px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                    project.coverFit === "contain"
+                      ? "bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30"
+                      : "bg-cyan-500/20 border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/30"
+                  }`}
+                  title="Toggle between cropping to fill frame vs showing whole image with black space"
+                >
+                  {project.coverFit === "contain" ? <Maximize2 className="w-3.5 h-3.5" /> : <Crop className="w-3.5 h-3.5" />}
+                  <span>{project.coverFit === "contain" ? "Fit Whole Image" : "Crop Fill Image"}</span>
+                </button>
 
-              {/* Upload Cover from Computer or Custom URL */}
-              {isEditorActive && (
+                {/* Upload Cover from Computer or Custom URL */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <label className="px-3 py-1.5 rounded text-xs font-mono bg-[var(--surface)] border border-[var(--line)] hover:border-[var(--accent-web)] text-[var(--text)] flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm">
                     <Upload className="w-3.5 h-3.5 text-[var(--accent-web)]" />
@@ -1029,9 +1029,9 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
                     <span>Paste Link</span>
                   </button>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Side-by-Side Image Browsing Galleries: LEFT (Final) vs RIGHT (Process) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8 pt-6 border-t border-[var(--line)]">
@@ -1085,20 +1085,22 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
 
                       {/* Hover Controls: Set as Thumbnail & Zoom */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCoverChange(imgUrl);
-                          }}
-                          className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                            isCurrentThumbnail
-                              ? "bg-emerald-600 text-white"
-                              : "bg-white/20 hover:bg-white text-white hover:text-black"
-                          }`}
-                        >
-                          {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
-                          <span>{isCurrentThumbnail ? "Selected" : "Set Cover"}</span>
-                        </button>
+                        {isEditorActive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCoverChange(imgUrl);
+                            }}
+                            className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                              isCurrentThumbnail
+                                ? "bg-emerald-600 text-white"
+                                : "bg-white/20 hover:bg-white text-white hover:text-black"
+                            }`}
+                          >
+                            {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
+                            <span>{isCurrentThumbnail ? "Selected" : "Set Cover"}</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={(e) => {
@@ -1168,20 +1170,22 @@ export const ProjectOverlayModal: React.FC<ProjectOverlayModalProps> = ({
 
                       {/* Hover Controls: Set as Thumbnail & Zoom */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCoverChange(imgUrl);
-                          }}
-                          className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-                            isCurrentThumbnail
-                              ? "bg-emerald-600 text-white"
-                              : "bg-white/20 hover:bg-white text-white hover:text-black"
-                          }`}
-                        >
-                          {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
-                          <span>{isCurrentThumbnail ? "Selected" : "Set Cover"}</span>
-                        </button>
+                        {isEditorActive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCoverChange(imgUrl);
+                            }}
+                            className={`w-full py-1 text-[9px] font-mono font-semibold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                              isCurrentThumbnail
+                                ? "bg-emerald-600 text-white"
+                                : "bg-white/20 hover:bg-white text-white hover:text-black"
+                            }`}
+                          >
+                            {isCurrentThumbnail ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
+                            <span>{isCurrentThumbnail ? "Selected" : "Set Cover"}</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={(e) => {
