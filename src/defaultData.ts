@@ -189,29 +189,11 @@ export function loadPortfolioState(): {
     if (saved) {
       const parsed = JSON.parse(saved);
 
-      // Clean old sample/unsplash URLs from local cache if present
-      const cleanedProjects = (parsed.projects || []).map((p: Project) => {
-        const isUnsplashCover = p.cover && p.cover.includes("unsplash.com");
-        const cleanProcess = (p.processImages || []).filter((url) => !url.includes("unsplash.com"));
-        const cleanFinal = (p.finalImages || []).filter((url) => !url.includes("unsplash.com"));
-        const cleanVideos = (p.videos || []).filter((url) => !url.includes("gtv-videos-bucket"));
-        const cleanModels = (p.models || []).filter((url) => !url.includes("modelviewer.dev"));
-
-        return {
-          ...p,
-          cover: isUnsplashCover ? PLACEHOLDER_COVER : p.cover || PLACEHOLDER_COVER,
-          processImages: cleanProcess,
-          finalImages: cleanFinal,
-          videos: cleanVideos,
-          models: cleanModels
-        };
-      });
-
       return {
         site: { ...DEFAULT_SITE, ...parsed.site },
         theme: { ...DEFAULT_THEME, ...parsed.theme },
-        categories: parsed.categories && parsed.categories.length ? parsed.categories : DEFAULT_CATEGORIES,
-        projects: (parsed.projects !== undefined && Array.isArray(parsed.projects)) ? cleanedProjects : DEFAULT_PROJECTS
+        categories: parsed.categories && Array.isArray(parsed.categories) && parsed.categories.length ? parsed.categories : DEFAULT_CATEGORIES,
+        projects: (parsed.projects !== undefined && Array.isArray(parsed.projects)) ? parsed.projects : DEFAULT_PROJECTS
       };
     }
   } catch (e) {

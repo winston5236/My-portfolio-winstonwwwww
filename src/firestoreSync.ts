@@ -16,6 +16,10 @@ const PROJECTS_COLL = collection(db, "portfolio_projects");
 let isQuotaExceeded = false;
 let knownProjectIds = new Set<string>();
 
+let lastLocalWriteTime = 0;
+let pendingSaveData: PortfolioData | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
 export function getQuotaExceeded(): boolean {
   return isQuotaExceeded;
 }
@@ -48,7 +52,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   let currentSite = DEFAULT_SITE;
   let currentTheme = DEFAULT_THEME;
   let currentCategories = DEFAULT_CATEGORIES;
-  let currentProjectOrder: string[] = [];
+  let currentProjectOrder: string[] | null = null;
   let projectsMap = new Map<string, Project>();
   let isMainLoaded = false;
   let isProjectsLoaded = false;
@@ -56,24 +60,39 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   function notify() {
     if (!isMainLoaded || !isProjectsLoaded) return;
 
-    // Order projects according to currentProjectOrder, fallback to remaining map items
-    const orderedProjects: Project[] = [];
-    const seen = new Set<string>();
-
-    for (const id of currentProjectOrder) {
-      if (projectsMap.has(id)) {
-        orderedProjects.push(projectsMap.get(id)!);
-        seen.add(id);
-      }
+    // Do NOT trigger notify while a local save is pending or within 1.5s of a local write
+    // to prevent race conditions where stale snapshot data overwrites local updates!
+    if (pendingSaveData !== null || Date.now() - lastLocalWriteTime < 1500) {
+      return;
     }
 
-    for (const [id, proj] of projectsMap.entries()) {
-      if (!seen.has(id)) {
+    // Build ordered projects based strictly on currentProjectOrder
+    const orderedProjects: Project[] = [];
+
+    if (currentProjectOrder !== null && Array.isArray(currentProjectOrder)) {
+      for (const id of currentProjectOrder) {
+        if (projectsMap.has(id)) {
+          orderedProjects.push(projectsMap.get(id)!);
+        }
+      }
+    } else {
+      // If project order was never initialized, use all map values
+      for (const proj of projectsMap.values()) {
         orderedProjects.push(proj);
       }
     }
 
-    const finalProjects = orderedProjects.length > 0 ? orderedProjects : DEFAULT_PROJECTS;
+    // Once main document is loaded, currentProjectOrder (even if empty []) is authoritative!
+    let finalProjects: Project[];
+    if (isMainLoaded && currentProjectOrder !== null) {
+      finalProjects = orderedProjects;
+    } else if (projectsMap.size > 0) {
+      finalProjects = Array.from(projectsMap.values());
+    } else {
+      const local = loadPortfolioState();
+      finalProjects = local.projects !== undefined ? local.projects : DEFAULT_PROJECTS;
+    }
+
     knownProjectIds = new Set(finalProjects.map((p) => p.id));
 
     const portfolioData: PortfolioData = {
@@ -105,28 +124,33 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
         }
 
         // Migration check: if main doc has legacy projects array and projectsMap is empty
-        if (Array.isArray(val.projects) && val.projects.length > 0 && projectsMap.size === 0) {
+        if (Array.isArray(val.projects) && val.projects.length > 0 && projectsMap.size === 0 && currentProjectOrder === null) {
+          currentProjectOrder = val.projects.map((p: Project) => p.id);
           for (const proj of val.projects) {
             projectsMap.set(proj.id, proj);
-            // Save to individual project doc
-            setDoc(doc(db, "portfolio_projects", proj.id), proj, { merge: true }).catch(console.warn);
+            setDoc(doc(db, "portfolio_projects", proj.id), proj).catch(console.warn);
           }
         }
       } else {
-        // Seed default config
+        // Seed default config if brand new Firestore document
         const local = loadPortfolioState();
         currentSite = local.site || DEFAULT_SITE;
         currentTheme = local.theme || DEFAULT_THEME;
         currentCategories = local.categories?.length ? local.categories : DEFAULT_CATEGORIES;
+        const initialProjs = local.projects !== undefined ? local.projects : DEFAULT_PROJECTS;
+        currentProjectOrder = initialProjs.map((p) => p.id);
 
         try {
           await setDoc(PORTFOLIO_DOC, {
             site: currentSite,
             theme: currentTheme,
             categories: currentCategories,
-            projectIds: (local.projects || DEFAULT_PROJECTS).map((p) => p.id),
+            projectIds: currentProjectOrder,
             updatedAt: new Date().toISOString(),
           });
+          for (const p of initialProjs) {
+            await setDoc(doc(db, "portfolio_projects", p.id), p).catch(console.warn);
+          }
         } catch (err) {
           console.warn("Error initializing portfolio main doc:", err);
         }
@@ -155,25 +179,7 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
         }
       });
 
-      // If Firestore has project documents, use them
-      if (newMap.size > 0) {
-        projectsMap = newMap;
-        knownProjectIds = new Set(newMap.keys());
-      } else if (isMainLoaded && currentProjectOrder !== null) {
-        // Main document exists and specifies project order (even if empty [])
-        projectsMap = newMap;
-        knownProjectIds = new Set();
-      } else {
-        // Fallback to local saved state if initial setup
-        const local = loadPortfolioState();
-        const fallbackProjs = local.projects !== undefined ? local.projects : DEFAULT_PROJECTS;
-        projectsMap = new Map();
-        for (const p of fallbackProjs) {
-          projectsMap.set(p.id, p);
-        }
-        knownProjectIds = new Set(projectsMap.keys());
-      }
-
+      projectsMap = newMap;
       isProjectsLoaded = true;
       notify();
     },
@@ -190,12 +196,9 @@ export function subscribeToPortfolio(onData: (data: PortfolioData) => void) {
   };
 }
 
-// Debounced save for Firestore
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-let pendingSaveData: PortfolioData | null = null;
-
 export async function saveToFirestore(data: PortfolioData) {
-  // Always save locally immediately for zero latency & offline persistence
+  lastLocalWriteTime = Date.now();
+  // Save locally immediately for zero latency & offline persistence
   savePortfolioState(data);
   pendingSaveData = data;
 
@@ -206,7 +209,6 @@ export async function saveToFirestore(data: PortfolioData) {
   saveTimeout = setTimeout(async () => {
     if (!pendingSaveData) return;
     const toSave = pendingSaveData;
-    pendingSaveData = null;
 
     try {
       // 1. Save main config (site, theme, categories, projectIds order)
@@ -226,13 +228,13 @@ export async function saveToFirestore(data: PortfolioData) {
       const currentIds = new Set<string>();
       for (const proj of toSave.projects) {
         currentIds.add(proj.id);
-        await setDoc(doc(db, "portfolio_projects", proj.id), proj, { merge: true });
+        await setDoc(doc(db, "portfolio_projects", proj.id), proj);
       }
 
       // 3. Delete any projects removed locally
       for (const oldId of knownProjectIds) {
         if (!currentIds.has(oldId)) {
-          deleteDoc(doc(db, "portfolio_projects", oldId)).catch(console.warn);
+          await deleteDoc(doc(db, "portfolio_projects", oldId)).catch(console.warn);
         }
       }
       knownProjectIds = currentIds;
@@ -243,8 +245,8 @@ export async function saveToFirestore(data: PortfolioData) {
       } else {
         handleFirestoreError(err, OperationType.WRITE, "portfolio_projects");
       }
+    } finally {
+      pendingSaveData = null;
     }
-  }, 800);
+  }, 200);
 }
-
-
